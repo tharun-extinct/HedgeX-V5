@@ -1,34 +1,44 @@
-import { useState } from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
+import DashboardPage from "./pages/DashboardPage";
+import StrategiesPage from "./pages/StrategiesPage";
+import TradesPage from "./pages/TradesPage";
+import AnalyticsPage from "./pages/AnalyticsPage";
+import SettingsPage from "./pages/SettingsPage";
+import ProfilePage from "./pages/ProfilePage";
+import DashboardLayout from "./layouts/DashboardLayout";
 import "./App.css";
+
+// This component handles scrolling to top on route changes
+const ScrollToTop = () => {
+  const { pathname } = useLocation();
+  
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  
+  return null;
+};
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(
     !!localStorage.getItem("sessionToken")
   );
 
-  // Placeholder for dashboard - would be a separate component in full implementation
-  const Dashboard = () => (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">HedgeX Dashboard</h1>
-      <p>Welcome to the HedgeX trading platform!</p>
-      <div className="mt-4">
-        <button 
-          className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded"
-          onClick={() => {
-            localStorage.removeItem("sessionToken");
-            setIsAuthenticated(false);
-          }}
-        >
-          Logout
-        </button>
-      </div>
-    </div>
-  );
+  // Listen for changes to the sessionToken in localStorage
+  useEffect(() => {
+    const handleStorageChange = () => {
+      setIsAuthenticated(!!localStorage.getItem("sessionToken"));
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
 
   return (
     <Router>
+      <ScrollToTop />
       <Routes>
         <Route 
           path="/" 
@@ -38,10 +48,17 @@ function App() {
           path="/login" 
           element={isAuthenticated ? <Navigate to="/dashboard" /> : <LoginPage />} 
         />
-        <Route 
-          path="/dashboard" 
-          element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" />} 
-        />
+        
+        {/* Protected routes using the dashboard layout */}
+        <Route element={isAuthenticated ? <DashboardLayout /> : <Navigate to="/login" />}>
+          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/strategies" element={<StrategiesPage />} />
+          <Route path="/trades" element={<TradesPage />} />
+          <Route path="/analytics" element={<AnalyticsPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+        </Route>
+        
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Router>

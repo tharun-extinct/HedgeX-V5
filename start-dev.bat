@@ -1,0 +1,6 @@
+@echo off
+echo Setting up environment for Tauri development...
+set PATH=%PATH%;%USERPROFILE%\.cargo\bin
+echo PATH updated to include Cargo
+echo Starting Tauri application...
+npm run tauri dev
