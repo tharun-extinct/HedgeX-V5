@@ -10,24 +10,138 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use tauri::Manager;
 use anyhow::Result;
+use uuid::Uuid;
+use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
+use argon2::password_hash::SaltString;
+use argon2::password_hash::rand_core::OsRng;
+use sqlx::Row;
+
+// Helper structs for SQLx queries
+#[derive(Debug)]
+struct ExistingUser {
+    pub id: String,
+}
+
+#[derive(Debug)]
+struct UserRecord {
+    pub id: String,
+    pub password_hash: String,
+}
 
 // Command handlers
+#[tauri::command]
+async fn create_user(
+    _full_name: String,
+    _email: String,
+    username: String,
+    password: String,
+    state: tauri::State<'_, AppState>
+) -> Result<serde_json::Value, String> {
+    // Check if username already exists
+    let db = state.db.lock().await;
+    
+    // Check if the username already exists
+    let existing_user = sqlx::query("SELECT id FROM users WHERE username = ?")
+        .bind(&username)
+        .fetch_optional(db.get_pool())
+        .await
+        .map_err(|e| format!("Database error: {}", e))?;
+
+    if existing_user.is_some() {
+        return Ok(serde_json::json!({
+            "success": false,
+            "message": "Username already exists"
+        }));
+    }
+
+    // Hash the password using Argon2
+    let salt = SaltString::generate(&mut OsRng);
+    let argon2 = Argon2::default();
+    let password_hash = argon2
+        .hash_password(password.as_bytes(), &salt)
+        .map_err(|e| format!("Password hashing error: {}", e))?
+        .to_string();
+
+    // Generate a new UUID for the user
+    let user_id = Uuid::new_v4().to_string();
+
+    // Insert the new user into the database
+    sqlx::query(
+        "INSERT INTO users (id, username, password_hash, created_at) VALUES (?, ?, ?, datetime('now'))"
+    )
+    .bind(&user_id)
+    .bind(&username)
+    .bind(password_hash)
+    .execute(db.get_pool())
+    .await
+    .map_err(|e| format!("Database error: {}", e))?;
+
+    // Log user creation
+    let logger = state.logger.lock().await;
+    let _ = logger.info(&format!("New user created: {}", username), Some(&user_id)).await;
+
+    Ok(serde_json::json!({
+        "success": true,
+        "message": "User created successfully"
+    }))
+}
+
 #[tauri::command]
 async fn login(
     username: String, 
     password: String, 
     state: tauri::State<'_, AppState>
 ) -> Result<String, String> {
-    // In a real implementation, we would:
-    // 1. Verify credentials against database
-    // 2. Generate a session token
-    // 3. Return the token
+    // Get database access
+    let db = state.db.lock().await;
+
+    // Find the user
+    let user_record = sqlx::query("SELECT id, password_hash FROM users WHERE username = ?")
+        .bind(&username)
+        .fetch_optional(db.get_pool())
+        .await
+        .map_err(|e| format!("Database error: {}", e))?;
+
+    // Check if user exists
+    let (user_id, password_hash) = match user_record {
+        Some(row) => {
+            let id: String = row.try_get("id").map_err(|e| format!("Database error: {}", e))?;
+            let hash: String = row.try_get("password_hash").map_err(|e| format!("Database error: {}", e))?;
+            (id, hash)
+        },
+        None => return Err("Invalid username or password".to_string()),
+    };
+
+    // Verify password
+    let parsed_hash = PasswordHash::new(&password_hash)
+        .map_err(|_| "Invalid stored password hash".to_string())?;
     
-    Ok("session_token_placeholder".to_string())
+    if Argon2::default()
+        .verify_password(password.as_bytes(), &parsed_hash)
+        .is_err() {
+        return Err("Invalid username or password".to_string());
+    }
+
+    // Update last login timestamp
+    sqlx::query(
+        "UPDATE users SET last_login = datetime('now') WHERE id = ?"
+    )
+    .bind(user_id.clone())
+    .execute(db.get_pool())
+    .await
+    .map_err(|e| format!("Failed to update login timestamp: {}", e))?;
+
+    // Log the successful login
+    let logger = state.logger.lock().await;
+    let _ = logger.info(&format!("User logged in: {}", username), Some(&user_id)).await;
+
+    // In a real implementation, we would generate a proper session token
+    // For now, just return the user ID as the session token
+    Ok(user_id)
 }
 
 #[tauri::command]
-async fn get_profile(state: tauri::State<'_, AppState>) -> Result<serde_json::Value, String> {
+async fn get_profile(_state: tauri::State<'_, AppState>) -> Result<serde_json::Value, String> {
     // In a real implementation, we would:
     // 1. Verify the user is authenticated
     // 2. Retrieve profile data
@@ -44,9 +158,9 @@ async fn get_profile(state: tauri::State<'_, AppState>) -> Result<serde_json::Va
 
 #[tauri::command]
 async fn save_api_credentials(
-    api_key: String,
-    api_secret: String,
-    state: tauri::State<'_, AppState>
+    _api_key: String,
+    _api_secret: String,
+    _state: tauri::State<'_, AppState>
 ) -> Result<bool, String> {
     // In a real implementation, we would:
     // 1. Encrypt the API secret
@@ -56,7 +170,7 @@ async fn save_api_credentials(
 }
 
 #[tauri::command]
-async fn get_stock_list(state: tauri::State<'_, AppState>) -> Result<Vec<serde_json::Value>, String> {
+async fn get_stock_list(_state: tauri::State<'_, AppState>) -> Result<Vec<serde_json::Value>, String> {
     // In a real implementation, we would:
     // 1. Retrieve NIFTY 50 stocks from Zerodha or database
     
@@ -78,7 +192,7 @@ async fn get_stock_list(state: tauri::State<'_, AppState>) -> Result<Vec<serde_j
 }
 
 #[tauri::command]
-async fn get_strategy_params(state: tauri::State<'_, AppState>) -> Result<serde_json::Value, String> {
+async fn get_strategy_params(_state: tauri::State<'_, AppState>) -> Result<serde_json::Value, String> {
     // In a real implementation, we would:
     // 1. Retrieve strategy parameters from database
     
@@ -96,8 +210,8 @@ async fn get_strategy_params(state: tauri::State<'_, AppState>) -> Result<serde_
 
 #[tauri::command]
 async fn save_strategy_params(
-    params: serde_json::Value,
-    state: tauri::State<'_, AppState>
+    _params: serde_json::Value,
+    _state: tauri::State<'_, AppState>
 ) -> Result<bool, String> {
     // In a real implementation, we would:
     // 1. Validate parameters
@@ -108,7 +222,7 @@ async fn save_strategy_params(
 }
 
 #[tauri::command]
-async fn start_trading(state: tauri::State<'_, AppState>) -> Result<bool, String> {
+async fn start_trading(_state: tauri::State<'_, AppState>) -> Result<bool, String> {
     // In a real implementation, we would:
     // 1. Initialize and start the trading engine
     
@@ -116,7 +230,7 @@ async fn start_trading(state: tauri::State<'_, AppState>) -> Result<bool, String
 }
 
 #[tauri::command]
-async fn stop_trading(state: tauri::State<'_, AppState>) -> Result<bool, String> {
+async fn stop_trading(_state: tauri::State<'_, AppState>) -> Result<bool, String> {
     // In a real implementation, we would:
     // 1. Stop the trading engine
     // 2. Close open positions if needed
@@ -125,7 +239,7 @@ async fn stop_trading(state: tauri::State<'_, AppState>) -> Result<bool, String>
 }
 
 #[tauri::command]
-async fn get_recent_trades(state: tauri::State<'_, AppState>) -> Result<Vec<serde_json::Value>, String> {
+async fn get_recent_trades(_state: tauri::State<'_, AppState>) -> Result<Vec<serde_json::Value>, String> {
     // In a real implementation, we would:
     // 1. Retrieve recent trades from database
     
@@ -176,19 +290,27 @@ pub fn run() {
         .setup(|app| {
             // Get app data directory
             let app_handle = app.handle();
-            let app_dir = app_handle.path_resolver().app_data_dir().expect("Failed to get app data directory");
+            let app_dir = app.path().app_data_dir().expect("Failed to get app data directory");
             
-            // Ensure the directory exists
+            println!("App data directory: {:?}", app_dir);
+            
+            // Ensure the directory exists with proper permissions
             std::fs::create_dir_all(&app_dir).expect("Failed to create app data directory");
             
             // Initialize components in a separate async block
             let app_handle_clone = app_handle.clone();
-            tauri::async_runtime::spawn(async move {
-                // Initialize database
+            tauri::async_runtime::block_on(async move {
+                // Initialize database with better error handling
                 let db = match db::Database::new(&app_dir).await {
-                    Ok(db) => Arc::new(Mutex::new(db)),
+                    Ok(db) => {
+                        println!("Database initialized successfully");
+                        Arc::new(Mutex::new(db))
+                    },
                     Err(e) => {
                         eprintln!("Failed to initialize database: {}", e);
+                        if let Some(source) = e.source() {
+                            eprintln!("Caused by: {}", source);
+                        }
                         std::process::exit(1);
                     }
                 };
@@ -203,8 +325,9 @@ pub fn run() {
                 let logger = Arc::new(Mutex::new(utils::Logger::new(db.clone(), None)));
                 
                 // Log startup
-                if let Ok(mut logger) = logger.lock().await {
-                    let _ = logger.info("HedgeX application started", None).await;
+                {
+                    let logger_guard = logger.lock().await;
+                    let _ = logger_guard.info("HedgeX application started", None).await;
                 }
                 
                 // Create and manage application state
@@ -222,6 +345,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            create_user,
             login,
             get_profile,
             save_api_credentials,

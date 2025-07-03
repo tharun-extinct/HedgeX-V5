@@ -1,11 +1,12 @@
 use crate::api::kite::KiteClient;
 use crate::api::ticker::{KiteTickerClient, TickData};
-use crate::models::{StockSelection, StrategyParams, Trade, TradeType, TradeStatus};
+use crate::models::{StockSelection, StrategyParams, TradeType};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use anyhow::Result;
 
 /// The core trading engine that executes strategies and places orders
+#[allow(dead_code)] // We're not using these fields yet, but they will be used in the future
 pub struct TradingEngine {
     kite_client: Arc<KiteClient>,
     ticker_client: Arc<Mutex<KiteTickerClient>>,
@@ -15,6 +16,7 @@ pub struct TradingEngine {
 }
 
 /// Manages open positions and risk
+#[allow(dead_code)] // We're not using these fields yet, but they will be used in the future
 struct PositionManager {
     positions: HashMap<String, Position>,
     daily_trade_count: i32,
@@ -22,6 +24,7 @@ struct PositionManager {
 }
 
 /// Represents an open position
+#[allow(dead_code)] // We're not using these fields yet, but they will be used in the future
 struct Position {
     symbol: String,
     quantity: i32,
@@ -39,6 +42,8 @@ impl TradingEngine {
         ticker_client: Arc<Mutex<KiteTickerClient>>,
         strategy_params: StrategyParams,
     ) -> Self {
+        let max_trades_per_day = strategy_params.max_trades_per_day;
+        
         Self {
             kite_client,
             ticker_client,
@@ -47,7 +52,7 @@ impl TradingEngine {
             position_manager: Arc::new(Mutex::new(PositionManager {
                 positions: HashMap::new(),
                 daily_trade_count: 0,
-                max_trades_per_day: strategy_params.max_trades_per_day,
+                max_trades_per_day,
             })),
         }
     }
@@ -113,6 +118,7 @@ impl TradingEngine {
     }
 
     /// Place a buy order
+    #[allow(dead_code)] // This will be used when integrating with the Zerodha API
     async fn place_buy_order(&self, symbol: &str, quantity: u32, price: Option<f64>) -> Result<String> {
         let order_type = if price.is_some() { "LIMIT" } else { "MARKET" };
         
@@ -131,6 +137,7 @@ impl TradingEngine {
     }
 
     /// Place a sell order
+    #[allow(dead_code)] // This will be used when integrating with the Zerodha API
     async fn place_sell_order(&self, symbol: &str, quantity: u32, price: Option<f64>) -> Result<String> {
         let order_type = if price.is_some() { "LIMIT" } else { "MARKET" };
         

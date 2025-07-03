@@ -47,18 +47,18 @@ impl Logger {
         let db = self.db.lock().await;
         let pool = db.get_pool();
         
-        sqlx::query!(
+        sqlx::query(
             r#"
             INSERT INTO system_logs (id, user_id, log_level, message, created_at, context)
             VALUES (?, ?, ?, ?, ?, ?)
-            "#,
-            log.id,
-            log.user_id,
-            log.log_level as i32, // Assuming we map the enum to integers in the DB
-            log.message,
-            log.created_at,
-            log.context
+            "#
         )
+        .bind(log.id)
+        .bind(log.user_id)
+        .bind(log.log_level as i32) // Assuming we map the enum to integers in the DB
+        .bind(log.message)
+        .bind(log.created_at)
+        .bind(log.context)
         .execute(pool)
         .await?;
         
