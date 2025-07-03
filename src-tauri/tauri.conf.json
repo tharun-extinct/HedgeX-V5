@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "tauri-app",
+  "productName": "HedgeX",
   "version": "0.1.0",
-  "identifier": "com.tauri-app.app",
+  "identifier": "com.hedgex.app",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -12,9 +12,13 @@
   "app": {
     "windows": [
       {
-        "title": "tauri-app",
-        "width": 800,
-        "height": 600
+        "title": "HedgeX - High-Frequency Trading",
+        "width": 1280,
+        "height": 720,
+        "minWidth": 800,
+        "minHeight": 600,
+        "center": true,
+        "resizable": true
       }
     ],
     "security": {
@@ -30,6 +34,10 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "resources": [
+      "migrations/*"
+    ],
+    "copyright": "© 2025 HedgeX. All rights reserved."
   }
 }
