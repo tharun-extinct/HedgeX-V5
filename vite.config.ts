@@ -6,8 +6,7 @@ const host = process.env.TAURI_DEV_HOST;
 
 // https://vitejs.dev/config/
 export default defineConfig(async () => ({
-  plugins: [react(), tailwindcss()],
-
+  plugins: [react()],
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
@@ -31,7 +30,3 @@ export default defineConfig(async () => ({
     },
   },
 }));
-function tailwindcss(): import("vite").PluginOption {
-  throw new Error("Function not implemented.");
-}
-

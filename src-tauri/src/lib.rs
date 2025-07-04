@@ -80,9 +80,19 @@ async fn create_user(
     let logger = state.logger.lock().await;
     let _ = logger.info(&format!("New user created: {}", username), Some(&user_id)).await;
 
+    // Update last login timestamp since this is the first login
+    sqlx::query(
+        "UPDATE users SET last_login = datetime('now') WHERE id = ?"
+    )
+    .bind(&user_id)
+    .execute(db.get_pool())
+    .await
+    .map_err(|e| format!("Failed to update login timestamp: {}", e))?;
+
     Ok(serde_json::json!({
         "success": true,
-        "message": "User created successfully"
+        "message": "User created successfully",
+        "token": user_id
     }))
 }
 

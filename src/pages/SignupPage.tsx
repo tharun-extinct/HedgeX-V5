@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '../components/ui/button';
 import { cn } from '../lib/utils';
 import { TrendingUp, Shield, Zap, Eye, EyeOff, Check, X } from 'lucide-react';
+import { useAuth } from '../App';
 
 // Check if we're running in Tauri environment
 const isTauri = typeof window !== 'undefined' && '__TAURI__' in window;
@@ -19,6 +20,7 @@ const SignupPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   // Password strength validation
   const getPasswordStrength = (password: string) => {
@@ -58,7 +60,7 @@ const SignupPage: React.FC = () => {
         // Import invoke dynamically only when in Tauri environment
         const { invoke } = await import('@tauri-apps/api/core');
         
-        const result = await invoke<{ success: boolean; message?: string }>('create_user', {
+        const result = await invoke<{ success: boolean; message?: string; token?: string }>('create_user', {
           fullName,
           email,
           username,
@@ -66,8 +68,14 @@ const SignupPage: React.FC = () => {
         });
         
         if (result.success) {
-          // Redirect to login page after successful signup
-          navigate('/login', { state: { message: 'Account created successfully. Please log in.' } });
+          if (result.token) {
+            // Login the user immediately using the returned token
+            login(result.token);
+            navigate('/dashboard');
+          } else {
+            // Fallback to login page if no token is returned
+            navigate('/login', { state: { message: 'Account created successfully. Please log in.' } });
+          }
         } else {
           setError(result.message || 'Failed to create account');
         }
@@ -78,8 +86,10 @@ const SignupPage: React.FC = () => {
         // Simulate API call delay
         await new Promise(resolve => setTimeout(resolve, 1000));
         
-        // For demo purposes, simulate successful signup
-        navigate('/login', { state: { message: 'Account created successfully. Please log in.' } });
+        // For demo purposes, simulate successful signup with immediate login
+        const mockSessionToken = `mock-session-${Date.now()}`;
+        login(mockSessionToken);
+        navigate('/dashboard');
       }
     } catch (err) {
       console.error('Signup failed:', err);

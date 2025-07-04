@@ -3,6 +3,7 @@ import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { TrendingUp, Shield, Zap, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { useAuth } from '../App';
 
 const LoginPage: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -13,6 +14,7 @@ const LoginPage: React.FC = () => {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
+  const { login } = useAuth();
 
   // Check for success message from signup page
   useEffect(() => {
@@ -36,7 +38,8 @@ const LoginPage: React.FC = () => {
         // Dynamic import for Tauri environment
         const { invoke } = await import('@tauri-apps/api/core');
         const sessionToken = await invoke<string>('login', { username, password });
-        localStorage.setItem('sessionToken', sessionToken);
+        // Use the context's login function to update state and localStorage
+        login(sessionToken);
       } else {
         // Fallback for web browser environment (development)
         // Simulate login validation
@@ -49,7 +52,8 @@ const LoginPage: React.FC = () => {
         
         // For demo purposes, accept any non-empty credentials
         const mockSessionToken = `mock-session-${Date.now()}`;
-        localStorage.setItem('sessionToken', mockSessionToken);
+        // Use the context's login function to update state and localStorage
+        login(mockSessionToken);
       }
       
       navigate('/dashboard');
