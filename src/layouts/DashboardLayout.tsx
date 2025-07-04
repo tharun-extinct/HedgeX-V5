@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { invoke } from '@tauri-apps/api/core';
 import { Button } from '../components/ui/button';
 
 const DashboardLayout: React.FC = () => {
@@ -9,8 +8,12 @@ const DashboardLayout: React.FC = () => {
 
   const handleLogout = async () => {
     try {
-      // In a real implementation, this would be an actual Tauri command
-      await invoke('logout');
+      // Check if we're running in a Tauri environment
+      if (window.__TAURI__) {
+        // Dynamically import invoke to avoid errors when not in Tauri
+        const { invoke } = await import('@tauri-apps/api/core');
+        await invoke('logout');
+      }
       
       // Clear session data
       localStorage.removeItem('sessionToken');
@@ -19,6 +22,10 @@ const DashboardLayout: React.FC = () => {
       navigate('/login');
     } catch (err) {
       console.error('Logout failed:', err);
+      
+      // Even if Tauri command fails, still clear local data and redirect
+      localStorage.removeItem('sessionToken');
+      navigate('/login');
     }
   };
 
