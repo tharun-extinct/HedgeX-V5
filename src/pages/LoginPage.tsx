@@ -3,10 +3,12 @@ import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { cn } from '../lib/utils';
+import { TrendingUp, Shield, Zap, Eye, EyeOff } from 'lucide-react';
 
 const LoginPage: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -61,90 +63,153 @@ const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">HedgeX</CardTitle>
-          <CardDescription className="text-center">
-            High-Frequency Trading for NIFTY 50
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {successMessage && (
-            <div className="mb-4 rounded-md bg-green-50 p-4 text-sm text-green-800">
-              {successMessage}
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Animated background elements */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse animation-delay-2000"></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-indigo-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse animation-delay-4000"></div>
+      </div>
+
+      {/* Grid pattern overlay */}
+      <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%239C92AC" fill-opacity="0.05"%3E%3Ccircle cx="30" cy="30" r="1"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-40"></div>
+
+      <div className="relative z-10 w-full max-w-md">
+        <Card className="backdrop-blur-xl bg-white/10 border-white/20 shadow-2xl">
+          <CardHeader className="space-y-4 text-center pb-8">
+            <div className="mx-auto w-16 h-16 bg-gradient-to-r from-purple-500 to-blue-500 rounded-2xl flex items-center justify-center mb-4 shadow-lg">
+              <TrendingUp className="w-8 h-8 text-white" />
             </div>
-          )}
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div className="space-y-2">
-              <label
-                htmlFor="username"
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
-                Username
-              </label>
-              <input
-                id="username"
-                type="text"
-                className={cn(
-                  "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm",
-                  "ring-offset-background file:border-0 file:bg-transparent",
-                  "file:text-sm file:font-medium placeholder:text-muted-foreground",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  "focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                )}
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                disabled={isLoading}
-                required
-              />
+            <CardTitle className="text-3xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+              HedgeX
+            </CardTitle>
+            <CardDescription className="text-gray-300 text-lg">
+              High-Frequency Trading for NIFTY 50
+            </CardDescription>
+            
+            {/* Feature highlights */}
+            <div className="flex justify-center space-x-6 pt-4">
+              <div className="flex flex-col items-center space-y-1">
+                <Shield className="w-5 h-5 text-green-400" />
+                <span className="text-xs text-gray-400">Secure</span>
+              </div>
+              <div className="flex flex-col items-center space-y-1">
+                <Zap className="w-5 h-5 text-yellow-400" />
+                <span className="text-xs text-gray-400">Fast</span>
+              </div>
+              <div className="flex flex-col items-center space-y-1">
+                <TrendingUp className="w-5 h-5 text-blue-400" />
+                <span className="text-xs text-gray-400">Profitable</span>
+              </div>
             </div>
-            <div className="space-y-2">
-              <label
-                htmlFor="password"
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                className={cn(
-                  "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm",
-                  "ring-offset-background file:border-0 file:bg-transparent",
-                  "file:text-sm file:font-medium placeholder:text-muted-foreground",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  "focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                )}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={isLoading}
-                required
-              />
-            </div>
-            {error && (
-              <div className="text-sm font-medium text-destructive">{error}</div>
-            )}
+          </CardHeader>
+          
+          <CardContent className="space-y-6">
             {successMessage && (
-              <div className="text-sm font-medium text-green-600">{successMessage}</div>
+              <div className="rounded-lg bg-green-500/20 border border-green-500/30 p-4 text-sm text-green-300 backdrop-blur-sm">
+                <div className="flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                  <span>{successMessage}</span>
+                </div>
+              </div>
             )}
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? 'Logging in...' : 'Login'}
-            </Button>
-          </form>
-        </CardContent>
-        <CardFooter className="flex flex-col items-center gap-2">
-          <div className="text-sm text-muted-foreground">
-            Don't have an account?{' '}
-            <Link to="/signup" className="text-primary hover:underline">
-              Sign Up
-            </Link>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} HedgeX. All rights reserved.
-          </p>
-        </CardFooter>
-      </Card>
+            
+            <form onSubmit={handleLogin} className="space-y-6">
+              <div className="space-y-2">
+                <label
+                  htmlFor="username"
+                  className="text-sm font-medium text-gray-300 block"
+                >
+                  Username
+                </label>
+                <input
+                  id="username"
+                  type="text"
+                  className={cn(
+                    "flex h-12 w-full rounded-xl border border-white/20 bg-white/10 backdrop-blur-sm px-4 py-3 text-white",
+                    "placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50",
+                    "transition-all duration-200 hover:bg-white/15"
+                  )}
+                  placeholder="Enter your username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  disabled={isLoading}
+                  required
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <label
+                  htmlFor="password"
+                  className="text-sm font-medium text-gray-300 block"
+                >
+                  Password
+                </label>
+                <div className="relative">
+                  <input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    className={cn(
+                      "flex h-12 w-full rounded-xl border border-white/20 bg-white/10 backdrop-blur-sm px-4 py-3 text-white pr-12",
+                      "placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50",
+                      "transition-all duration-200 hover:bg-white/15"
+                    )}
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={isLoading}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 flex items-center pr-4 text-gray-400 hover:text-white transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+              </div>
+              
+              {error && (
+                <div className="rounded-lg bg-red-500/20 border border-red-500/30 p-4 text-sm text-red-300 backdrop-blur-sm">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-red-400 rounded-full"></div>
+                    <span>{error}</span>
+                  </div>
+                </div>
+              )}
+              
+              <Button 
+                type="submit" 
+                className="w-full h-12 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold rounded-xl transition-all duration-200 transform hover:scale-[1.02] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none" 
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <div className="flex items-center space-x-2">
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    <span>Signing in...</span>
+                  </div>
+                ) : (
+                  'Sign In'
+                )}
+              </Button>
+            </form>
+          </CardContent>
+          
+          <CardFooter className="flex flex-col items-center space-y-4 pt-6">
+            <div className="text-sm text-gray-400">
+              Don't have an account?{' '}
+              <Link to="/signup" className="text-purple-400 hover:text-purple-300 font-medium transition-colors">
+                Create Account
+              </Link>
+            </div>
+            <div className="w-full h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+            <p className="text-xs text-gray-500 text-center">
+              © {new Date().getFullYear()} HedgeX. Secure trading platform with enterprise-grade encryption.
+            </p>
+          </CardFooter>
+        </Card>
+      </div>
     </div>
   );
 };
