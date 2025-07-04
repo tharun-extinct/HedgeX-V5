@@ -2,6 +2,13 @@ import React, { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 
+// Declare the __TAURI__ global property
+declare global {
+  interface Window {
+    __TAURI__?: any;
+  }
+}
+
 const DashboardLayout: React.FC = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
