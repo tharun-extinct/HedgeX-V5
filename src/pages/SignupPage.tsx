@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { invoke } from '@tauri-apps/api/core';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { cn } from '../lib/utils';
+
+// Check if we're running in Tauri environment
+const isTauri = typeof window !== 'undefined' && '__TAURI__' in window;
 
 const SignupPage: React.FC = () => {
   const [fullName, setFullName] = useState('');
@@ -33,23 +35,40 @@ const SignupPage: React.FC = () => {
     setError(null);
 
     try {
-      // In a real implementation, this would create a new user account
-      const result = await invoke<{ success: boolean; message?: string }>('create_user', {
-        fullName,
-        email,
-        username,
-        password
-      });
-      
-      if (result.success) {
-        // Redirect to login page after successful signup
-        navigate('/login', { state: { message: 'Account created successfully. Please log in.' } });
+      if (isTauri) {
+        // Import invoke dynamically only when in Tauri environment
+        const { invoke } = await import('@tauri-apps/api/core');
+        
+        const result = await invoke<{ success: boolean; message?: string }>('create_user', {
+          fullName,
+          email,
+          username,
+          password
+        });
+        
+        if (result.success) {
+          // Redirect to login page after successful signup
+          navigate('/login', { state: { message: 'Account created successfully. Please log in.' } });
+        } else {
+          setError(result.message || 'Failed to create account');
+        }
       } else {
-        setError(result.message || 'Failed to create account');
+        // Fallback for web browser environment (development/testing)
+        console.warn('Running in web browser - Tauri APIs not available. Simulating signup...');
+        
+        // Simulate API call delay
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // For demo purposes, simulate successful signup
+        navigate('/login', { state: { message: 'Account created successfully. Please log in.' } });
       }
     } catch (err) {
       console.error('Signup failed:', err);
-      setError('Failed to create account. Please try again.');
+      if (isTauri) {
+        setError('Failed to create account. Please try again.');
+      } else {
+        setError('Running in web browser mode. Please use the Tauri desktop app for full functionality.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -62,6 +81,11 @@ const SignupPage: React.FC = () => {
           <CardTitle className="text-2xl font-bold text-center">Create an Account</CardTitle>
           <CardDescription className="text-center">
             Sign up for HedgeX Trading Platform
+            {!isTauri && (
+              <div className="mt-2 text-xs text-orange-600">
+                ⚠️ Running in web browser mode - limited functionality
+              </div>
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent>
