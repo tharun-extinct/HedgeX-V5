@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { invoke } from '@tauri-apps/api/core';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { cn } from '../lib/utils';
@@ -29,14 +28,29 @@ const LoginPage: React.FC = () => {
     setError(null);
 
     try {
-      const sessionToken = await invoke<string>('login', { username, password });
+      // Check if we're running in Tauri environment
+      const isTauri = typeof window !== 'undefined' && '__TAURI__' in window;
       
-      // In a real implementation, we would:
-      // 1. Store the session token
-      // 2. Redirect to dashboard
+      if (isTauri) {
+        // Dynamic import for Tauri environment
+        const { invoke } = await import('@tauri-apps/api/core');
+        const sessionToken = await invoke<string>('login', { username, password });
+        localStorage.setItem('sessionToken', sessionToken);
+      } else {
+        // Fallback for web browser environment (development)
+        // Simulate login validation
+        if (username.trim() === '' || password.trim() === '') {
+          throw new Error('Username and password are required');
+        }
+        
+        // Simulate API call delay
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // For demo purposes, accept any non-empty credentials
+        const mockSessionToken = `mock-session-${Date.now()}`;
+        localStorage.setItem('sessionToken', mockSessionToken);
+      }
       
-      // For now, just simulate a successful login
-      localStorage.setItem('sessionToken', sessionToken);
       navigate('/dashboard');
     } catch (err) {
       console.error('Login failed:', err);
