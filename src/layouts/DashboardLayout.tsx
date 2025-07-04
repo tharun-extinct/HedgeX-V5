@@ -43,29 +43,32 @@ const DashboardLayout: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-background">
-      {/* Sidebar for larger screens */}
-      <div className="hidden md:flex md:flex-col md:w-64 bg-muted/50 border-r">
-        <div className="p-4 border-b">
-          <h1 className="text-2xl font-bold">HedgeX</h1>
-          <p className="text-sm text-muted-foreground">High-Frequency Trading</p>
-        </div>
-        <nav className="flex-1 overflow-y-auto p-2">
-          <ul className="space-y-1">
-            {navLinks.map((link) => (
-              <li key={link.to}>
+    <div className="min-h-screen flex flex-col bg-background">
+      {/* Horizontal Header Navigation */}
+      <header className="bg-white border-b shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            {/* Logo */}
+            <div className="flex items-center">
+              <h1 className="text-2xl font-bold text-slate-900">HedgeX</h1>
+              <span className="ml-2 text-sm text-slate-500 hidden sm:block">High-Frequency Trading</span>
+            </div>
+
+            {/* Desktop Navigation */}
+            <nav className="hidden md:flex space-x-1">
+              {navLinks.map((link) => (
                 <NavLink
+                  key={link.to}
                   to={link.to}
                   className={({ isActive }) =>
-                    `flex items-center px-4 py-2 rounded-md transition-colors ${
+                    `flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                       isActive
-                        ? 'bg-primary text-primary-foreground'
-                        : 'hover:bg-muted'
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                     }`
                   }
                 >
-                  <span className={`mr-3 text-lg icon-${link.icon}`}>
-                    {/* Icon would be here in a real implementation */}
+                  <span className={`mr-2 text-lg`}>
                     {link.icon === 'chart-bar' && '📊'}
                     {link.icon === 'puzzle' && '🧩'}
                     {link.icon === 'list' && '📋'}
@@ -75,82 +78,82 @@ const DashboardLayout: React.FC = () => {
                   </span>
                   {link.label}
                 </NavLink>
-              </li>
-            ))}
-          </ul>
-        </nav>
-        <div className="p-4 border-t">
-          <Button variant="outline" className="w-full" onClick={handleLogout}>
-            Logout
-          </Button>
-        </div>
-      </div>
-
-      {/* Mobile header */}
-      <div className="md:hidden bg-background border-b p-4 flex justify-between items-center">
-        <h1 className="text-xl font-bold">HedgeX</h1>
-        <button
-          onClick={toggleMobileMenu}
-          className="text-2xl"
-          aria-label="Toggle menu"
-        >
-          {isMobileMenuOpen ? '✕' : '☰'}
-        </button>
-      </div>
-
-      {/* Mobile menu overlay */}
-      {isMobileMenuOpen && (
-        <div className="md:hidden fixed inset-0 z-50 bg-background">
-          <div className="p-4 flex justify-between items-center border-b">
-            <h1 className="text-xl font-bold">HedgeX</h1>
-            <button
-              onClick={toggleMobileMenu}
-              className="text-2xl"
-              aria-label="Close menu"
-            >
-              ✕
-            </button>
-          </div>
-          <nav className="p-4">
-            <ul className="space-y-4">
-              {navLinks.map((link) => (
-                <li key={link.to}>
-                  <NavLink
-                    to={link.to}
-                    className={({ isActive }) =>
-                      `flex items-center px-4 py-3 rounded-md transition-colors ${
-                        isActive
-                          ? 'bg-primary text-primary-foreground'
-                          : 'hover:bg-muted'
-                      }`
-                    }
-                    onClick={toggleMobileMenu}
-                  >
-                    <span className={`mr-3 text-lg icon-${link.icon}`}>
-                      {link.icon === 'chart-bar' && '📊'}
-                      {link.icon === 'puzzle' && '🧩'}
-                      {link.icon === 'list' && '📋'}
-                      {link.icon === 'chart-line' && '📈'}
-                      {link.icon === 'cog' && '⚙️'}
-                      {link.icon === 'user' && '👤'}
-                    </span>
-                    {link.label}
-                  </NavLink>
-                </li>
               ))}
-              <li>
+            </nav>
+
+            {/* Desktop Logout Button */}
+            <div className="hidden md:flex items-center space-x-4">
+              <Button 
+                variant="outline" 
+                onClick={handleLogout}
+                className="text-red-600 border-red-300 hover:bg-red-50"
+              >
+                Logout
+              </Button>
+            </div>
+
+            {/* Mobile menu button */}
+            <div className="md:hidden">
+              <button
+                onClick={toggleMobileMenu}
+                className="text-slate-600 hover:text-slate-900 focus:outline-none focus:text-slate-900 p-2"
+                aria-label="Toggle menu"
+              >
+                {isMobileMenuOpen ? (
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                ) : (
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Mobile Navigation Menu */}
+        {isMobileMenuOpen && (
+          <div className="md:hidden border-t bg-white">
+            <div className="px-2 pt-2 pb-3 space-y-1">
+              {navLinks.map((link) => (
+                <NavLink
+                  key={link.to}
+                  to={link.to}
+                  className={({ isActive }) =>
+                    `flex items-center px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                      isActive
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                    }`
+                  }
+                  onClick={toggleMobileMenu}
+                >
+                  <span className={`mr-3 text-lg`}>
+                    {link.icon === 'chart-bar' && '📊'}
+                    {link.icon === 'puzzle' && '🧩'}
+                    {link.icon === 'list' && '📋'}
+                    {link.icon === 'chart-line' && '📈'}
+                    {link.icon === 'cog' && '⚙️'}
+                    {link.icon === 'user' && '👤'}
+                  </span>
+                  {link.label}
+                </NavLink>
+              ))}
+              <div className="pt-2 border-t">
                 <Button 
                   variant="outline" 
-                  className="w-full mt-4"
+                  className="w-full text-red-600 border-red-300 hover:bg-red-50"
                   onClick={handleLogout}
                 >
                   Logout
                 </Button>
-              </li>
-            </ul>
-          </nav>
-        </div>
-      )}
+              </div>
+            </div>
+          </div>
+        )}
+      </header>
 
       {/* Main content area */}
       <main className="flex-1 overflow-y-auto">
