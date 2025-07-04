@@ -78,10 +78,18 @@ const DashboardPage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
+      <div className="flex h-screen items-center justify-center" style={{
+        background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
+      }}>
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mx-auto"></div>
-          <p className="mt-4 text-slate-600 font-medium">Loading market data...</p>
+          <div 
+            className="w-16 h-16 border-4 border-t-4 rounded-full animate-spin mx-auto"
+            style={{
+              borderColor: '#e2e8f0',
+              borderTopColor: '#3b82f6'
+            }}
+          ></div>
+          <p className="mt-6 text-slate-600 font-semibold text-lg">Loading market data...</p>
         </div>
       </div>
     );
@@ -91,128 +99,184 @@ const DashboardPage: React.FC = () => {
   const totalPnLPercent = positions.length > 0 ? (totalPnL / positions.reduce((sum, pos) => sum + (pos.entryPrice * Math.abs(pos.quantity)), 0)) * 100 : 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
-      <div className="p-6 max-w-7xl mx-auto">
+    <div className="min-h-screen" style={{
+      background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
+    }}>
+      <div className="p-8 max-w-7xl mx-auto">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex justify-between items-center mb-10">
           <div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
+            <h1 
+              className="text-5xl font-bold text-transparent bg-clip-text mb-3"
+              style={{
+                backgroundImage: 'linear-gradient(135deg, #1e293b 0%, #475569 100%)',
+              }}
+            >
               Trading Dashboard
             </h1>
-            <p className="text-slate-600 mt-2">Real-time market data and portfolio overview</p>
+            <p className="text-slate-600 text-xl">Real-time market data and portfolio overview</p>
           </div>
-          <div className="flex items-center space-x-3">
-            <div className={`flex items-center space-x-2 px-4 py-2 rounded-full ${isMarketOpen ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-              <div className={`w-2 h-2 rounded-full ${isMarketOpen ? 'bg-green-500' : 'bg-red-500'} animate-pulse`}></div>
-              <span className="font-medium">{isMarketOpen ? 'Market Open' : 'Market Closed'}</span>
+          <div className="flex items-center space-x-4">
+            <div 
+              className={`flex items-center space-x-3 px-6 py-3 rounded-2xl font-semibold ${
+                isMarketOpen 
+                  ? 'bg-green-100 text-green-800 border-2 border-green-200' 
+                  : 'bg-red-100 text-red-800 border-2 border-red-200'
+              }`}
+            >
+              <div className={`w-3 h-3 rounded-full ${isMarketOpen ? 'bg-green-500' : 'bg-red-500'} animate-pulse`}></div>
+              <span>{isMarketOpen ? 'Market Open' : 'Market Closed'}</span>
             </div>
           </div>
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-xl mb-6 flex items-center space-x-2">
-            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-            <span>{error}</span>
+          <div 
+            className="border-2 border-red-200 text-red-800 px-6 py-4 rounded-2xl mb-8 flex items-center space-x-3"
+            style={{
+              background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
+            }}
+          >
+            <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+            <span className="font-medium">{error}</span>
           </div>
         )}
 
         {/* Key Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 shadow-lg hover:shadow-xl transition-all duration-300">
-            <CardHeader className="pb-3">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
+          <Card 
+            className="shadow-2xl border-0 transform hover:scale-105 transition-all duration-300"
+            style={{
+              background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)',
+            }}
+          >
+            <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium text-blue-700">Account Balance</CardTitle>
-                <DollarSign className="w-5 h-5 text-blue-600" />
+                <CardTitle className="text-sm font-bold text-blue-700">Account Balance</CardTitle>
+                <div className="w-12 h-12 rounded-2xl bg-blue-500 flex items-center justify-center">
+                  <DollarSign className="w-6 h-6 text-white" />
+                </div>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-blue-900">₹1,25,000</div>
-              <div className="text-sm text-blue-600 mt-1">Available for trading</div>
+              <div className="text-4xl font-bold text-blue-900 mb-2">₹1,25,000</div>
+              <div className="text-sm text-blue-600 font-medium">Available for trading</div>
             </CardContent>
           </Card>
           
-          <Card className={`bg-gradient-to-br ${totalPnL >= 0 ? 'from-green-50 to-green-100 border-green-200' : 'from-red-50 to-red-100 border-red-200'} shadow-lg hover:shadow-xl transition-all duration-300`}>
-            <CardHeader className="pb-3">
+          <Card 
+            className={`shadow-2xl border-0 transform hover:scale-105 transition-all duration-300 ${
+              totalPnL >= 0 
+                ? 'bg-gradient-to-br from-green-50 to-green-100' 
+                : 'bg-gradient-to-br from-red-50 to-red-100'
+            }`}
+          >
+            <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
-                <CardTitle className={`text-sm font-medium ${totalPnL >= 0 ? 'text-green-700' : 'text-red-700'}`}>Today's P&L</CardTitle>
-                {totalPnL >= 0 ? <TrendingUp className="w-5 h-5 text-green-600" /> : <TrendingDown className="w-5 h-5 text-red-600" />}
+                <CardTitle className={`text-sm font-bold ${totalPnL >= 0 ? 'text-green-700' : 'text-red-700'}`}>Today's P&L</CardTitle>
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${totalPnL >= 0 ? 'bg-green-500' : 'bg-red-500'}`}>
+                  {totalPnL >= 0 ? <TrendingUp className="w-6 h-6 text-white" /> : <TrendingDown className="w-6 h-6 text-white" />}
+                </div>
               </div>
             </CardHeader>
             <CardContent>
-              <div className={`text-3xl font-bold ${totalPnL >= 0 ? 'text-green-900' : 'text-red-900'}`}>
+              <div className={`text-4xl font-bold mb-2 ${totalPnL >= 0 ? 'text-green-900' : 'text-red-900'}`}>
                 {totalPnL >= 0 ? '+' : ''}₹{totalPnL.toFixed(2)}
               </div>
-              <div className={`text-sm mt-1 ${totalPnL >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              <div className={`text-sm font-medium ${totalPnL >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                 {totalPnLPercent >= 0 ? '+' : ''}{totalPnLPercent.toFixed(2)}%
               </div>
             </CardContent>
           </Card>
           
-          <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 shadow-lg hover:shadow-xl transition-all duration-300">
-            <CardHeader className="pb-3">
+          <Card 
+            className="shadow-2xl border-0 transform hover:scale-105 transition-all duration-300"
+            style={{
+              background: 'linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%)',
+            }}
+          >
+            <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium text-purple-700">Open Positions</CardTitle>
-                <Target className="w-5 h-5 text-purple-600" />
+                <CardTitle className="text-sm font-bold text-purple-700">Open Positions</CardTitle>
+                <div className="w-12 h-12 rounded-2xl bg-purple-500 flex items-center justify-center">
+                  <Target className="w-6 h-6 text-white" />
+                </div>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-purple-900">{positions.length}</div>
-              <div className="text-sm text-purple-600 mt-1">Active trades</div>
+              <div className="text-4xl font-bold text-purple-900 mb-2">{positions.length}</div>
+              <div className="text-sm text-purple-600 font-medium">Active trades</div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200 shadow-lg hover:shadow-xl transition-all duration-300">
-            <CardHeader className="pb-3">
+          <Card 
+            className="shadow-2xl border-0 transform hover:scale-105 transition-all duration-300"
+            style={{
+              background: 'linear-gradient(135deg, #fed7aa 0%, #fdba74 100%)',
+            }}
+          >
+            <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium text-orange-700">Active Strategies</CardTitle>
-                <Activity className="w-5 h-5 text-orange-600" />
+                <CardTitle className="text-sm font-bold text-orange-700">Active Strategies</CardTitle>
+                <div className="w-12 h-12 rounded-2xl bg-orange-500 flex items-center justify-center">
+                  <Activity className="w-6 h-6 text-white" />
+                </div>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-orange-900">2</div>
-              <div className="text-sm text-orange-600 mt-1">Running algorithms</div>
+              <div className="text-4xl font-bold text-orange-900 mb-2">2</div>
+              <div className="text-sm text-orange-600 font-medium">Running algorithms</div>
             </CardContent>
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 mb-12">
           {/* Market Watch */}
-          <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
-            <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 rounded-t-lg">
+          <Card className="shadow-2xl border-0 bg-white/80 backdrop-blur-sm">
+            <CardHeader 
+              className="rounded-t-2xl"
+              style={{
+                background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
+              }}
+            >
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-xl font-bold text-slate-900">Market Watch</CardTitle>
-                  <CardDescription className="text-slate-600">NIFTY 50 top performers</CardDescription>
+                  <CardTitle className="text-2xl font-bold text-slate-900">Market Watch</CardTitle>
+                  <CardDescription className="text-slate-600 text-lg">NIFTY 50 top performers</CardDescription>
                 </div>
-                <Activity className="w-6 h-6 text-slate-600" />
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                  <Activity className="w-7 h-7 text-white" />
+                </div>
               </div>
             </CardHeader>
             <CardContent className="p-0">
               <div className="overflow-hidden">
                 {marketData.map((stock, index) => (
-                  <div key={stock.symbol} className={`p-4 border-b border-slate-100 hover:bg-slate-50 transition-colors ${index === 0 ? 'bg-gradient-to-r from-blue-50 to-transparent' : ''}`}>
+                  <div key={stock.symbol} className={`p-6 border-b border-slate-100 hover:bg-slate-50 transition-all duration-300 ${index === 0 ? 'bg-gradient-to-r from-blue-50 to-transparent' : ''}`}>
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
-                        <div className="flex items-center space-x-3">
-                          <div className={`w-3 h-3 rounded-full ${stock.change >= 0 ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                        <div className="flex items-center space-x-4">
+                          <div className={`w-4 h-4 rounded-full ${stock.change >= 0 ? 'bg-green-500' : 'bg-red-500'} animate-pulse`}></div>
                           <div>
-                            <h3 className="font-bold text-slate-900">{stock.symbol}</h3>
+                            <h3 className="font-bold text-slate-900 text-lg">{stock.symbol}</h3>
                             <p className="text-sm text-slate-500">Vol: {(stock.volume / 1000).toFixed(0)}K</p>
                           </div>
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="font-bold text-slate-900">₹{stock.lastPrice.toFixed(2)}</div>
-                        <div className={`text-sm font-medium flex items-center ${stock.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {stock.change >= 0 ? <ArrowUpRight className="w-3 h-3 mr-1" /> : <ArrowDownRight className="w-3 h-3 mr-1" />}
+                        <div className="font-bold text-slate-900 text-lg">₹{stock.lastPrice.toFixed(2)}</div>
+                        <div className={`text-sm font-bold flex items-center ${stock.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {stock.change >= 0 ? <ArrowUpRight className="w-4 h-4 mr-1" /> : <ArrowDownRight className="w-4 h-4 mr-1" />}
                           {stock.change >= 0 ? '+' : ''}{stock.change.toFixed(2)} ({stock.changePercent.toFixed(2)}%)
                         </div>
                       </div>
-                      <div className="flex space-x-1 ml-4">
+                      <div className="flex space-x-2 ml-6">
                         <Button 
                           size="sm" 
-                          variant="outline" 
-                          className="h-8 px-3 text-green-600 border-green-200 hover:bg-green-50 hover:text-green-700 transition-colors"
+                          className="h-10 px-4 text-white font-semibold rounded-xl transition-all duration-300 transform hover:scale-105"
+                          style={{
+                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                          }}
                           onClick={() => handleQuickTrade(stock.symbol, 'BUY')}
                           disabled={!isMarketOpen}
                         >
@@ -220,8 +284,10 @@ const DashboardPage: React.FC = () => {
                         </Button>
                         <Button 
                           size="sm" 
-                          variant="outline" 
-                          className="h-8 px-3 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 transition-colors"
+                          className="h-10 px-4 text-white font-semibold rounded-xl transition-all duration-300 transform hover:scale-105"
+                          style={{
+                            background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                          }}
                           onClick={() => handleQuickTrade(stock.symbol, 'SELL')}
                           disabled={!isMarketOpen}
                         >
@@ -236,27 +302,34 @@ const DashboardPage: React.FC = () => {
           </Card>
 
           {/* Open Positions */}
-          <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
-            <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 rounded-t-lg">
+          <Card className="shadow-2xl border-0 bg-white/80 backdrop-blur-sm">
+            <CardHeader 
+              className="rounded-t-2xl"
+              style={{
+                background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
+              }}
+            >
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-xl font-bold text-slate-900">Open Positions</CardTitle>
-                  <CardDescription className="text-slate-600">Currently active trades</CardDescription>
+                  <CardTitle className="text-2xl font-bold text-slate-900">Open Positions</CardTitle>
+                  <CardDescription className="text-slate-600 text-lg">Currently active trades</CardDescription>
                 </div>
-                <Target className="w-6 h-6 text-slate-600" />
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
+                  <Target className="w-7 h-7 text-white" />
+                </div>
               </div>
             </CardHeader>
             <CardContent className="p-0">
               <div className="overflow-hidden">
                 {positions.length > 0 ? (
                   positions.map((position) => (
-                    <div key={position.symbol} className="p-4 border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                    <div key={position.symbol} className="p-6 border-b border-slate-100 hover:bg-slate-50 transition-all duration-300">
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
-                          <div className="flex items-center space-x-3">
-                            <div className={`w-3 h-3 rounded-full ${position.quantity > 0 ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                          <div className="flex items-center space-x-4">
+                            <div className={`w-4 h-4 rounded-full ${position.quantity > 0 ? 'bg-green-500' : 'bg-red-500'} animate-pulse`}></div>
                             <div>
-                              <h3 className="font-bold text-slate-900">{position.symbol}</h3>
+                              <h3 className="font-bold text-slate-900 text-lg">{position.symbol}</h3>
                               <p className="text-sm text-slate-500">
                                 {position.quantity > 0 ? 'Long' : 'Short'} {Math.abs(position.quantity)} shares
                               </p>
@@ -271,11 +344,11 @@ const DashboardPage: React.FC = () => {
                             Current: ₹{position.currentPrice.toFixed(2)}
                           </div>
                         </div>
-                        <div className="text-right ml-4">
-                          <div className={`font-bold ${position.pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        <div className="text-right ml-6">
+                          <div className={`font-bold text-lg ${position.pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                             {position.pnl >= 0 ? '+' : ''}₹{position.pnl.toFixed(2)}
                           </div>
-                          <div className={`text-sm ${position.pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          <div className={`text-sm font-semibold ${position.pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                             {position.pnlPercent >= 0 ? '+' : ''}{position.pnlPercent.toFixed(2)}%
                           </div>
                         </div>
@@ -283,9 +356,9 @@ const DashboardPage: React.FC = () => {
                     </div>
                   ))
                 ) : (
-                  <div className="p-8 text-center text-slate-500">
-                    <Target className="w-12 h-12 mx-auto mb-4 text-slate-300" />
-                    <p>No open positions</p>
+                  <div className="p-12 text-center text-slate-500">
+                    <Target className="w-16 h-16 mx-auto mb-6 text-slate-300" />
+                    <p className="text-lg font-medium">No open positions</p>
                   </div>
                 )}
               </div>
@@ -294,117 +367,157 @@ const DashboardPage: React.FC = () => {
         </div>
 
         {/* Active Strategies */}
-        <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
-          <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 rounded-t-lg">
+        <Card className="shadow-2xl border-0 bg-white/80 backdrop-blur-sm">
+          <CardHeader 
+            className="rounded-t-2xl"
+            style={{
+              background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
+            }}
+          >
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-xl font-bold text-slate-900">Active Strategies</CardTitle>
-                <CardDescription className="text-slate-600">Automated trading algorithms</CardDescription>
+                <CardTitle className="text-2xl font-bold text-slate-900">Active Strategies</CardTitle>
+                <CardDescription className="text-slate-600 text-lg">Automated trading algorithms</CardDescription>
               </div>
-              <Zap className="w-6 h-6 text-slate-600" />
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-yellow-500 to-orange-600 flex items-center justify-center">
+                <Zap className="w-7 h-7 text-white" />
+              </div>
             </div>
           </CardHeader>
-          <CardContent className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200 hover:shadow-lg transition-all duration-300">
-                <CardHeader className="pb-3">
+          <CardContent className="p-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              <Card 
+                className="border-0 hover:shadow-2xl transition-all duration-300 transform hover:scale-105"
+                style={{
+                  background: 'linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)',
+                }}
+              >
+                <CardHeader className="pb-4">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg font-bold text-green-900">NIFTY Momentum</CardTitle>
-                    <div className="flex items-center space-x-1">
-                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                      <span className="text-xs font-medium text-green-700">ACTIVE</span>
+                    <CardTitle className="text-xl font-bold text-green-900">NIFTY Momentum</CardTitle>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                      <span className="text-xs font-bold text-green-700 bg-green-200 px-2 py-1 rounded-full">ACTIVE</span>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent className="space-y-4">
                   <div className="flex justify-between text-sm">
-                    <span className="text-green-700">Today's P&L:</span>
+                    <span className="text-green-700 font-medium">Today's P&L:</span>
                     <span className="font-bold text-green-900">+₹1,250.00</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-green-700">Positions:</span>
-                    <span className="font-medium text-green-900">2</span>
+                    <span className="text-green-700 font-medium">Positions:</span>
+                    <span className="font-bold text-green-900">2</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-green-700">Win Rate:</span>
-                    <span className="font-medium text-green-900">68%</span>
+                    <span className="text-green-700 font-medium">Win Rate:</span>
+                    <span className="font-bold text-green-900">68%</span>
                   </div>
-                  <div className="flex space-x-2 pt-2">
-                    <Button size="sm" variant="outline" className="flex-1 text-green-700 border-green-300 hover:bg-green-50">
-                      <Pause className="w-3 h-3 mr-1" />
+                  <div className="flex space-x-3 pt-4">
+                    <Button 
+                      size="sm" 
+                      className="flex-1 text-green-700 border-2 border-green-300 bg-green-50 hover:bg-green-100 font-semibold rounded-xl"
+                    >
+                      <Pause className="w-4 h-4 mr-2" />
                       Pause
                     </Button>
-                    <Button size="sm" variant="outline" className="flex-1 text-green-700 border-green-300 hover:bg-green-50">
+                    <Button 
+                      size="sm" 
+                      className="flex-1 text-green-700 border-2 border-green-300 bg-green-50 hover:bg-green-100 font-semibold rounded-xl"
+                    >
                       View
                     </Button>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200 hover:shadow-lg transition-all duration-300">
-                <CardHeader className="pb-3">
+              <Card 
+                className="border-0 hover:shadow-2xl transition-all duration-300 transform hover:scale-105"
+                style={{
+                  background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+                }}
+              >
+                <CardHeader className="pb-4">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg font-bold text-yellow-900">Mean Reversion</CardTitle>
-                    <div className="flex items-center space-x-1">
-                      <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                      <span className="text-xs font-medium text-yellow-700">STANDBY</span>
+                    <CardTitle className="text-xl font-bold text-yellow-900">Mean Reversion</CardTitle>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                      <span className="text-xs font-bold text-yellow-700 bg-yellow-200 px-2 py-1 rounded-full">STANDBY</span>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent className="space-y-4">
                   <div className="flex justify-between text-sm">
-                    <span className="text-yellow-700">Today's P&L:</span>
+                    <span className="text-yellow-700 font-medium">Today's P&L:</span>
                     <span className="font-bold text-red-600">-₹320.00</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-yellow-700">Positions:</span>
-                    <span className="font-medium text-yellow-900">1</span>
+                    <span className="text-yellow-700 font-medium">Positions:</span>
+                    <span className="font-bold text-yellow-900">1</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-yellow-700">Win Rate:</span>
-                    <span className="font-medium text-yellow-900">56%</span>
+                    <span className="text-yellow-700 font-medium">Win Rate:</span>
+                    <span className="font-bold text-yellow-900">56%</span>
                   </div>
-                  <div className="flex space-x-2 pt-2">
-                    <Button size="sm" variant="outline" className="flex-1 text-yellow-700 border-yellow-300 hover:bg-yellow-50">
-                      <Play className="w-3 h-3 mr-1" />
+                  <div className="flex space-x-3 pt-4">
+                    <Button 
+                      size="sm" 
+                      className="flex-1 text-yellow-700 border-2 border-yellow-300 bg-yellow-50 hover:bg-yellow-100 font-semibold rounded-xl"
+                    >
+                      <Play className="w-4 h-4 mr-2" />
                       Activate
                     </Button>
-                    <Button size="sm" variant="outline" className="flex-1 text-yellow-700 border-yellow-300 hover:bg-yellow-50">
+                    <Button 
+                      size="sm" 
+                      className="flex-1 text-yellow-700 border-2 border-yellow-300 bg-yellow-50 hover:bg-yellow-100 font-semibold rounded-xl"
+                    >
                       View
                     </Button>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="bg-gradient-to-br from-slate-50 to-slate-100 border-slate-200 hover:shadow-lg transition-all duration-300">
-                <CardHeader className="pb-3">
+              <Card 
+                className="border-0 hover:shadow-2xl transition-all duration-300 transform hover:scale-105"
+                style={{
+                  background: 'linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)',
+                }}
+              >
+                <CardHeader className="pb-4">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg font-bold text-slate-900">Gap & Go</CardTitle>
-                    <div className="flex items-center space-x-1">
-                      <div className="w-2 h-2 bg-slate-400 rounded-full"></div>
-                      <span className="text-xs font-medium text-slate-600">INACTIVE</span>
+                    <CardTitle className="text-xl font-bold text-slate-900">Gap & Go</CardTitle>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-3 h-3 bg-slate-400 rounded-full"></div>
+                      <span className="text-xs font-bold text-slate-600 bg-slate-200 px-2 py-1 rounded-full">INACTIVE</span>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent className="space-y-4">
                   <div className="flex justify-between text-sm">
-                    <span className="text-slate-600">Today's P&L:</span>
-                    <span className="font-medium text-slate-700">₹0.00</span>
+                    <span className="text-slate-600 font-medium">Today's P&L:</span>
+                    <span className="font-bold text-slate-700">₹0.00</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-slate-600">Positions:</span>
-                    <span className="font-medium text-slate-700">0</span>
+                    <span className="text-slate-600 font-medium">Positions:</span>
+                    <span className="font-bold text-slate-700">0</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-slate-600">Win Rate:</span>
-                    <span className="font-medium text-slate-700">62%</span>
+                    <span className="text-slate-600 font-medium">Win Rate:</span>
+                    <span className="font-bold text-slate-700">62%</span>
                   </div>
-                  <div className="flex space-x-2 pt-2">
-                    <Button size="sm" variant="outline" className="flex-1 text-slate-600 border-slate-300 hover:bg-slate-50">
-                      <Play className="w-3 h-3 mr-1" />
+                  <div className="flex space-x-3 pt-4">
+                    <Button 
+                      size="sm" 
+                      className="flex-1 text-slate-600 border-2 border-slate-300 bg-slate-50 hover:bg-slate-100 font-semibold rounded-xl"
+                    >
+                      <Play className="w-4 h-4 mr-2" />
                       Activate
                     </Button>
-                    <Button size="sm" variant="outline" className="flex-1 text-slate-600 border-slate-300 hover:bg-slate-50">
+                    <Button 
+                      size="sm" 
+                      className="flex-1 text-slate-600 border-2 border-slate-300 bg-slate-50 hover:bg-slate-100 font-semibold rounded-xl"
+                    >
                       View
                     </Button>
                   </div>
