@@ -98,6 +98,52 @@ HedgeX allows configuration of various trading parameters:
 - No data is sent to external servers
 - Local HTTPS server with self-signed certificate for secure communication
 
+## UI Improvement Guide
+
+If the UI doesn't look appealing, here are some recommended improvements:
+
+
+## Troubleshooting
+
+### Connection Issues
+
+If you encounter "localhost refused to connect" errors:
+
+1. Verify both frontend and backend are running:
+   ```
+   npm run tauri dev
+   ```
+
+2. Check if port 1420 is already in use:
+   ```
+   netstat -ano | findstr :1420
+   ```
+
+3. Try running frontend and backend separately:
+   ```
+   # Terminal 1: Frontend
+   npm run dev
+   
+   # Terminal 2: Backend
+   cd src-tauri
+   cargo run
+   ```
+
+4. Ensure all dependencies are installed:
+   ```
+   npm install
+   cd src-tauri
+   cargo check
+   ```
+
+### Database Issues
+
+If you encounter database initialization errors:
+
+1. Check app data directory permissions
+2. Verify migrations are in the correct location
+3. Try running with admin privileges
+
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.

@@ -1,5 +1,6 @@
-<!-- Use this file to provide workspace-specific custom instructions to Copilot. For more details, visit https://code.visualstudio.com/docs/copilot/copilot-customization#_use-a-githubcopilotinstructionsmd-file -->
-
+{
+    applyTo: "**/*",
+}
 # HedgeX Project
 
 This is a high-frequency trading (HFT) application built with Tauri + React for frontend and Rust for backend. The application integrates with Zerodha Kite API for trading NIFTY 50 stocks.

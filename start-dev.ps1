@@ -52,6 +52,27 @@ npm install
 # Ensure Rust dependencies are up to date
 Write-Host "Checking Rust dependencies..." -ForegroundColor Green
 cd src-tauri
+
+# Force clean any locks
+Write-Host "Cleaning Rust build artifacts and locks..." -ForegroundColor Yellow
+if (Test-Path -Path "target/debug/hedgex.exe") {
+    try {
+        Remove-Item -Path "target/debug/hedgex.exe" -Force -ErrorAction SilentlyContinue
+    } catch {
+        Write-Host "Warning: Could not remove existing hedgex.exe, it may be in use." -ForegroundColor Yellow
+        Write-Host "Trying to force terminate any running instances..." -ForegroundColor Yellow
+        Get-Process | Where-Object {$_.Name -like "hedgex*"} | Stop-Process -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 2
+        
+        # Try again
+        try {
+            Remove-Item -Path "target/debug/hedgex.exe" -Force -ErrorAction SilentlyContinue
+        } catch {
+            Write-Host "Still cannot remove hedgex.exe. Will continue anyway..." -ForegroundColor Yellow
+        }
+    }
+}
+cargo clean
 cargo check
 cd ..
 
@@ -73,14 +94,15 @@ Write-Host "If the application window doesn't open automatically, please open th
 
 # Start the application
 try {
-    npm run tauri dev
-} catch {
-    Write-Host "Error starting the application: $_" -ForegroundColor Red
+    # Try to kill any existing Tauri or Node processes that might be blocking our ports
+    Get-Process | Where-Object {$_.Name -like "hedgex*" -or $_.Name -like "node*" -and $_.Path -like "*HedgeX-V5*"} | Stop-Process -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 2
     
-    Write-Host "Attempting to start frontend and backend separately..." -ForegroundColor Yellow
+    # Launch in separate frontend and backend mode instead of combined mode
+    Write-Host "Starting frontend and backend separately (more reliable)..." -ForegroundColor Yellow
     
     # Start Vite development server in a new window
-    Start-Process powershell -ArgumentList "-Command npm run dev"
+    Start-Process powershell -ArgumentList "-Command cd 'x:\AI_and_Automation\HedgeX-V5' && npm run dev"
     
     # Give Vite time to start
     Write-Host "Waiting for Vite to start..." -ForegroundColor Yellow
@@ -90,4 +112,7 @@ try {
     Write-Host "Starting Tauri backend..." -ForegroundColor Yellow
     cd src-tauri
     cargo run
+} catch {
+    Write-Host "Error starting the application: $_" -ForegroundColor Red
+    Write-Host "Please try running 'npm run dev' and 'cargo run' separately." -ForegroundColor Yellow
 }
