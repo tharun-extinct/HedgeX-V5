@@ -22,16 +22,19 @@ graph TB
         Trading[Trading Engine]
         WS[WebSocket Manager]
         Crypto[Encryption Service]
+        Backtest[Backtesting Engine]
     end
     
     subgraph "Data Layer"
         SQLite[(SQLite Database)]
         Logs[Log Files]
+        HistData[Historical Data]
     end
     
     subgraph "External APIs"
         Kite[Zerodha Kite API]
         KiteWS[Kite WebSocket]
+        KiteHist[Kite Historical API]
     end
     
     UI --> API
@@ -40,12 +43,16 @@ graph TB
     API --> Auth
     API --> Trading
     API --> WS
+    API --> Backtest
     Auth --> Crypto
     Trading --> SQLite
     Auth --> SQLite
     WS --> KiteWS
     Trading --> Kite
     Trading --> Logs
+    Backtest --> SQLite
+    Backtest --> HistData
+    Backtest --> KiteHist
 ```
 
 ### System Components
@@ -151,6 +158,24 @@ impl KiteClient {
     pub async fn get_orders(&self) -> Result<Vec<KiteOrder>>;
     pub async fn cancel_order(&self, order_id: &str) -> Result<()>;
     pub async fn get_holdings(&self) -> Result<Vec<KiteHolding>>;
+    pub async fn get_historical_data(&self, params: HistoricalDataParams) -> Result<Vec<OHLCV>>;
+}
+```
+
+#### Backtesting Engine
+```rust
+pub struct BacktestEngine {
+    db: Arc<SqlitePool>,
+    strategy_manager: Arc<StrategyManager>,
+}
+
+impl BacktestEngine {
+    pub async fn run_backtest(&self, params: BacktestParams) -> Result<BacktestResult>;
+    pub async fn import_csv_data(&self, file_path: &str, symbol: &str) -> Result<()>;
+    pub async fn fetch_historical_data(&self, params: HistoricalDataFetchParams) -> Result<()>;
+    pub async fn get_backtest_results(&self, user_id: &str) -> Result<Vec<BacktestSummary>>;
+    pub async fn get_backtest_detail(&self, backtest_id: &str) -> Result<BacktestDetail>;
+    pub async fn compare_backtests(&self, backtest_ids: Vec<&str>) -> Result<BacktestComparison>;
 }
 ```
 
@@ -251,6 +276,126 @@ pub struct StockSelection {
 }
 ```
 
+#### Backtesting Data Models
+```rust
+#[derive(Debug, Serialize, Deserialize)]
+pub struct OHLCV {
+    pub timestamp: DateTime<Utc>,
+    pub open: Decimal,
+    pub high: Decimal,
+    pub low: Decimal,
+    pub close: Decimal,
+    pub volume: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BacktestParams {
+    pub id: String,
+    pub user_id: String,
+    pub strategy_id: String,
+    pub symbol: String,
+    pub exchange: String,
+    pub start_date: DateTime<Utc>,
+    pub end_date: DateTime<Utc>,
+    pub timeframe: Timeframe,
+    pub initial_capital: Decimal,
+    pub data_source: DataSource,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum DataSource {
+    KiteAPI,
+    CSVFile(String), // Path to uploaded CSV file
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum Timeframe {
+    Minute1,
+    Minute5,
+    Minute15,
+    Minute30,
+    Hour1,
+    Day1,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BacktestResult {
+    pub id: String,
+    pub params: BacktestParams,
+    pub total_trades: i32,
+    pub winning_trades: i32,
+    pub losing_trades: i32,
+    pub final_pnl: Decimal,
+    pub max_drawdown: Decimal,
+    pub sharpe_ratio: f64,
+    pub win_rate: f64,
+    pub profit_factor: f64,
+    pub trades: Vec<BacktestTrade>,
+    pub equity_curve: Vec<EquityPoint>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BacktestTrade {
+    pub id: String,
+    pub backtest_id: String,
+    pub symbol: String,
+    pub trade_type: TradeType,
+    pub entry_time: DateTime<Utc>,
+    pub entry_price: Decimal,
+    pub quantity: i32,
+    pub exit_time: Option<DateTime<Utc>>,
+    pub exit_price: Option<Decimal>,
+    pub pnl: Option<Decimal>,
+    pub exit_reason: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct EquityPoint {
+    pub timestamp: DateTime<Utc>,
+    pub equity: Decimal,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BacktestSummary {
+    pub id: String,
+    pub user_id: String,
+    pub strategy_name: String,
+    pub symbol: String,
+    pub start_date: DateTime<Utc>,
+    pub end_date: DateTime<Utc>,
+    pub total_trades: i32,
+    pub final_pnl: Decimal,
+    pub win_rate: f64,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BacktestComparison {
+    pub backtests: Vec<BacktestSummary>,
+    pub metrics_comparison: HashMap<String, Vec<f64>>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct HistoricalDataParams {
+    pub symbol: String,
+    pub exchange: String,
+    pub from_date: DateTime<Utc>,
+    pub to_date: DateTime<Utc>,
+    pub timeframe: Timeframe,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct HistoricalDataFetchParams {
+    pub user_id: String,
+    pub symbols: Vec<String>,
+    pub exchange: String,
+    pub from_date: DateTime<Utc>,
+    pub to_date: DateTime<Utc>,
+    pub timeframe: Timeframe,
+}
+```
+
 ### Database Schema Enhancements
 
 The existing schema will be extended with additional tables:
@@ -293,6 +438,70 @@ CREATE TABLE performance_metrics (
     max_drawdown REAL NOT NULL DEFAULT 0.0,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     UNIQUE(user_id, date)
+);
+
+-- Historical price data
+CREATE TABLE historical_data (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    symbol TEXT NOT NULL,
+    exchange TEXT NOT NULL,
+    timestamp TIMESTAMP NOT NULL,
+    open REAL NOT NULL,
+    high REAL NOT NULL,
+    low REAL NOT NULL,
+    close REAL NOT NULL,
+    volume INTEGER NOT NULL,
+    timeframe TEXT NOT NULL,
+    UNIQUE(symbol, exchange, timestamp, timeframe)
+);
+
+-- Backtest runs
+CREATE TABLE backtest_runs (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    strategy_id TEXT NOT NULL,
+    symbol TEXT NOT NULL,
+    exchange TEXT NOT NULL,
+    start_date TIMESTAMP NOT NULL,
+    end_date TIMESTAMP NOT NULL,
+    timeframe TEXT NOT NULL,
+    initial_capital REAL NOT NULL,
+    total_trades INTEGER NOT NULL,
+    winning_trades INTEGER NOT NULL,
+    losing_trades INTEGER NOT NULL,
+    final_pnl REAL NOT NULL,
+    max_drawdown REAL NOT NULL,
+    sharpe_ratio REAL NOT NULL,
+    win_rate REAL NOT NULL,
+    profit_factor REAL NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (strategy_id) REFERENCES strategy_params(id) ON DELETE CASCADE
+);
+
+-- Backtest trades
+CREATE TABLE backtest_trades (
+    id TEXT PRIMARY KEY,
+    backtest_id TEXT NOT NULL,
+    symbol TEXT NOT NULL,
+    trade_type TEXT NOT NULL,
+    entry_time TIMESTAMP NOT NULL,
+    entry_price REAL NOT NULL,
+    quantity INTEGER NOT NULL,
+    exit_time TIMESTAMP,
+    exit_price REAL,
+    pnl REAL,
+    exit_reason TEXT,
+    FOREIGN KEY (backtest_id) REFERENCES backtest_runs(id) ON DELETE CASCADE
+);
+
+-- Backtest equity curve
+CREATE TABLE backtest_equity_curve (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    backtest_id TEXT NOT NULL,
+    timestamp TIMESTAMP NOT NULL,
+    equity REAL NOT NULL,
+    FOREIGN KEY (backtest_id) REFERENCES backtest_runs(id) ON DELETE CASCADE
 );
 ```
 

@@ -1,7 +1,9 @@
 // Modules
 pub mod api;
 pub mod db;
+pub mod error;
 pub mod models;
+pub mod services;
 pub mod trading;
 pub mod utils;
 
@@ -280,9 +282,11 @@ async fn get_recent_trades(_state: tauri::State<'_, AppState>) -> Result<Vec<ser
 
 // Application state that will be shared across commands
 struct AppState {
-    db: Arc<Mutex<db::Database>>,
+    app_service: Arc<services::AppService>,
     kite_client: Arc<api::KiteClient>,
     ticker_client: Arc<Mutex<api::KiteTickerClient>>,
+    // Legacy fields for backward compatibility
+    db: Arc<Mutex<db::Database>>,
     logger: Arc<Mutex<utils::Logger>>,
     app_path: PathBuf,
 }
@@ -310,17 +314,14 @@ pub fn run() {
             // Initialize components in a separate async block
             let app_handle_clone = app_handle.clone();
             tauri::async_runtime::block_on(async move {
-                // Initialize database with better error handling
-                let db = match db::Database::new(&app_dir).await {
-                    Ok(db) => {
-                        println!("Database initialized successfully");
-                        Arc::new(Mutex::new(db))
+                // Initialize enhanced app service
+                let app_service = match services::AppService::new(&app_dir).await {
+                    Ok(service) => {
+                        println!("AppService initialized successfully");
+                        Arc::new(service)
                     },
                     Err(e) => {
-                        eprintln!("Failed to initialize database: {}", e);
-                        if let Some(source) = e.source() {
-                            eprintln!("Caused by: {}", source);
-                        }
+                        eprintln!("Failed to initialize AppService: {}", e);
                         std::process::exit(1);
                     }
                 };
@@ -331,20 +332,25 @@ pub fn run() {
                 // Initialize ticker client
                 let ticker_client = Arc::new(Mutex::new(api::KiteTickerClient::new()));
                 
-                // Initialize logger
-                let logger = Arc::new(Mutex::new(utils::Logger::new(db.clone(), None)));
+                // Get references for backward compatibility
+                let db = app_service.get_database_service().get_database();
+                let logger = app_service.get_logger();
                 
                 // Log startup
                 {
                     let logger_guard = logger.lock().await;
-                    let _ = logger_guard.info("HedgeX application started", None).await;
+                    let _ = logger_guard.info("HedgeX application started with enhanced services", None).await;
                 }
                 
                 // Create and manage application state
                 let state = AppState {
-                    db,
+                    app_service,
                     kite_client,
                     ticker_client,
+                    // Legacy fields for backward compatibility
+                    db: Arc::new(Mutex::new(
+                        db::Database::new(&app_dir).await.expect("Failed to create legacy DB reference")
+                    )),
                     logger,
                     app_path: app_dir,
                 };

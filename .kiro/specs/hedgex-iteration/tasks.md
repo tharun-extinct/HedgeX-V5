@@ -1,6 +1,14 @@
 # Implementation Plan
 
 - [ ] 1. Set up enhanced backend infrastructure and core services
+
+
+
+
+
+
+
+
   - Create error handling types and result wrappers for consistent error management
   - Implement crypto service for secure credential encryption using ring and argon2
   - Set up enhanced logging system with tracing and structured log output
@@ -113,7 +121,27 @@
   - Write tests for data persistence and backup/recovery operations
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
 
-- [ ] 14. Integrate all components and perform end-to-end testing
+- [ ] 14. Implement local backtesting engine
+  - Create BacktestEngine struct with historical data processing capabilities
+  - Implement strategy execution simulation on historical data
+  - Build performance metrics calculation (P&L, drawdown, Sharpe ratio, etc.)
+  - Add CSV parser for manual data import with validation
+  - Implement Zerodha Kite Historical Data API client for paid data access
+  - Create backtesting results storage and retrieval in SQLite
+  - Write comprehensive tests for backtesting accuracy and performance
+  - _Requirements: 9.1, 9.2, 9.3, 9.4_
+
+- [ ] 15. Build backtesting user interface
+  - Create BacktestPage with strategy selection and parameter configuration
+  - Implement historical data source selection (API or CSV upload)
+  - Build date range and time frame selection controls
+  - Add backtesting progress indicator with cancellation option
+  - Create comprehensive results visualization with charts and metrics
+  - Implement comparison view for multiple backtest runs
+  - Write tests for backtesting UI components and data visualization
+  - _Requirements: 9.1, 9.2, 9.3, 9.4_
+
+- [ ] 16. Integrate all components and perform end-to-end testing
   - Connect frontend components to backend API endpoints
   - Implement real-time data flow from WebSocket to frontend displays
   - Add proper error propagation from backend to frontend
