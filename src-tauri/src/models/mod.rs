@@ -91,11 +91,12 @@ pub struct SystemLog {
 }
 
 /// Log level for system logs
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]
+#[repr(i32)]
 pub enum LogLevel {
-    Debug,
-    Info,
-    Warning,
-    Error,
-    Critical,
+    Debug = 0,
+    Info = 1,
+    Warning = 2,
+    Error = 3,
+    Critical = 4,
 }
