@@ -30,7 +30,7 @@ struct UserRecord {
     pub password_hash: String,
 }
 
-// Command handlers
+// Command handlers using the new authentication service
 #[tauri::command]
 async fn create_user(
     _full_name: String,
@@ -39,63 +39,38 @@ async fn create_user(
     password: String,
     state: tauri::State<'_, AppState>
 ) -> Result<serde_json::Value, String> {
-    // Check if username already exists
-    let db = state.db.lock().await;
+    use crate::services::auth_service::RegisterRequest;
     
-    // Check if the username already exists
-    let existing_user = sqlx::query("SELECT id FROM users WHERE username = ?")
-        .bind(&username)
-        .fetch_optional(db.get_pool())
-        .await
-        .map_err(|e| format!("Database error: {}", e))?;
-
-    if existing_user.is_some() {
-        return Ok(serde_json::json!({
-            "success": false,
-            "message": "Username already exists"
-        }));
+    let register_request = RegisterRequest {
+        username: username.clone(),
+        password,
+    };
+    
+    // Use the authentication service
+    let auth_service = state.app_service.get_auth_service();
+    
+    match auth_service.register(register_request).await {
+        Ok(user) => {
+            // Create a login session for the new user
+            let login_request = crate::services::auth_service::LoginRequest {
+                username: username.clone(),
+                password: user.id.clone(), // Temporary - we'll need to handle this properly
+            };
+            
+            // For now, return success without auto-login
+            Ok(serde_json::json!({
+                "success": true,
+                "message": "User created successfully",
+                "user_id": user.id
+            }))
+        }
+        Err(e) => {
+            Ok(serde_json::json!({
+                "success": false,
+                "message": e.to_string()
+            }))
+        }
     }
-
-    // Hash the password using Argon2
-    let salt = SaltString::generate(&mut OsRng);
-    let argon2 = Argon2::default();
-    let password_hash = argon2
-        .hash_password(password.as_bytes(), &salt)
-        .map_err(|e| format!("Password hashing error: {}", e))?
-        .to_string();
-
-    // Generate a new UUID for the user
-    let user_id = Uuid::new_v4().to_string();
-
-    // Insert the new user into the database
-    sqlx::query(
-        "INSERT INTO users (id, username, password_hash, created_at) VALUES (?, ?, ?, datetime('now'))"
-    )
-    .bind(&user_id)
-    .bind(&username)
-    .bind(password_hash)
-    .execute(db.get_pool())
-    .await
-    .map_err(|e| format!("Database error: {}", e))?;
-
-    // Log user creation
-    let logger = state.logger.lock().await;
-    let _ = logger.info(&format!("New user created: {}", username), Some(&user_id)).await;
-
-    // Update last login timestamp since this is the first login
-    sqlx::query(
-        "UPDATE users SET last_login = datetime('now') WHERE id = ?"
-    )
-    .bind(&user_id)
-    .execute(db.get_pool())
-    .await
-    .map_err(|e| format!("Failed to update login timestamp: {}", e))?;
-
-    Ok(serde_json::json!({
-        "success": true,
-        "message": "User created successfully",
-        "token": user_id
-    }))
 }
 
 #[tauri::command]
@@ -104,52 +79,25 @@ async fn login(
     password: String, 
     state: tauri::State<'_, AppState>
 ) -> Result<String, String> {
-    // Get database access
-    let db = state.db.lock().await;
-
-    // Find the user
-    let user_record = sqlx::query("SELECT id, password_hash FROM users WHERE username = ?")
-        .bind(&username)
-        .fetch_optional(db.get_pool())
-        .await
-        .map_err(|e| format!("Database error: {}", e))?;
-
-    // Check if user exists
-    let (user_id, password_hash) = match user_record {
-        Some(row) => {
-            let id: String = row.try_get("id").map_err(|e| format!("Database error: {}", e))?;
-            let hash: String = row.try_get("password_hash").map_err(|e| format!("Database error: {}", e))?;
-            (id, hash)
-        },
-        None => return Err("Invalid username or password".to_string()),
-    };
-
-    // Verify password
-    let parsed_hash = PasswordHash::new(&password_hash)
-        .map_err(|_| "Invalid stored password hash".to_string())?;
+    use crate::services::auth_service::LoginRequest;
     
-    if Argon2::default()
-        .verify_password(password.as_bytes(), &parsed_hash)
-        .is_err() {
-        return Err("Invalid username or password".to_string());
+    let login_request = LoginRequest {
+        username,
+        password,
+    };
+    
+    // Use the authentication service
+    let auth_service = state.app_service.get_auth_service();
+    
+    match auth_service.login(login_request).await {
+        Ok(session) => {
+            // Return the session token
+            Ok(session.token)
+        }
+        Err(e) => {
+            Err(e.to_string())
+        }
     }
-
-    // Update last login timestamp
-    sqlx::query(
-        "UPDATE users SET last_login = datetime('now') WHERE id = ?"
-    )
-    .bind(user_id.clone())
-    .execute(db.get_pool())
-    .await
-    .map_err(|e| format!("Failed to update login timestamp: {}", e))?;
-
-    // Log the successful login
-    let logger = state.logger.lock().await;
-    let _ = logger.info(&format!("User logged in: {}", username), Some(&user_id)).await;
-
-    // In a real implementation, we would generate a proper session token
-    // For now, just return the user ID as the session token
-    Ok(user_id)
 }
 
 #[tauri::command]

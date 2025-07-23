@@ -1,6 +1,6 @@
 use crate::db::DatabaseConfig;
 use crate::error::{HedgeXError, Result};
-use crate::services::DatabaseService;
+use crate::services::{DatabaseService, EnhancedDatabaseService, AuthService};
 use crate::utils::{Logger, CryptoService};
 use std::path::Path;
 use std::sync::Arc;
@@ -10,6 +10,8 @@ use tracing::{info, debug, error};
 /// Main application service that coordinates all core services
 pub struct AppService {
     database_service: Arc<DatabaseService>,
+    enhanced_database_service: Arc<EnhancedDatabaseService>,
+    auth_service: Arc<AuthService>,
     logger: Arc<Mutex<Logger>>,
     crypto_service: Arc<CryptoService>,
     app_data_dir: std::path::PathBuf,
@@ -20,34 +22,37 @@ impl AppService {
     pub async fn new(app_data_dir: &Path) -> Result<Self> {
         info!("Initializing AppService");
         
-        // Initialize crypto service first
-        let crypto_service = Arc::new(CryptoService::new());
+        // Use a default master password for encryption (in production, this should be user-provided)
+        let master_password = "hedgex_master_key_2025";
         
-        // Initialize logger with database placeholder (will be updated after DB init)
-        let logger = Arc::new(Mutex::new(Logger::new(
-            Arc::new(Mutex::new(
-                crate::db::Database::new(app_data_dir)
-                    .await
-                    .map_err(|e| HedgeXError::DatabaseError(sqlx::Error::Configuration(e.into())))?
-            )),
-            None
-        )));
-        
-        // Initialize database service
-        let database_service = Arc::new(
-            DatabaseService::new(app_data_dir, Arc::clone(&logger), Arc::clone(&crypto_service))
-                .await?
+        // Initialize enhanced database service first
+        let enhanced_database_service = Arc::new(
+            EnhancedDatabaseService::new(app_data_dir, master_password).await?
         );
         
-        // Update logger with the proper database reference
-        {
-            let mut logger_guard = logger.lock().await;
-            *logger_guard = Logger::new(database_service.get_database(), None);
-        }
+        // Run migrations
+        enhanced_database_service.run_migrations().await?;
+        
+        // Initialize authentication service
+        let auth_service = Arc::new(AuthService::new(Arc::clone(&enhanced_database_service)));
+        
+        // Initialize legacy crypto service for backward compatibility
+        let crypto_service = Arc::new(CryptoService::new());
+        
+        // Initialize legacy database service for backward compatibility
+        let database_service = Arc::new(
+            DatabaseService::new(
+                app_data_dir, 
+                enhanced_database_service.get_logger(), 
+                Arc::clone(&crypto_service)
+            ).await?
+        );
         
         let service = Self {
             database_service,
-            logger,
+            enhanced_database_service: Arc::clone(&enhanced_database_service),
+            auth_service,
+            logger: enhanced_database_service.get_logger(),
             crypto_service,
             app_data_dir: app_data_dir.to_path_buf(),
         };
@@ -66,34 +71,38 @@ impl AppService {
     pub async fn new_with_db_config(app_data_dir: &Path, db_config: DatabaseConfig) -> Result<Self> {
         info!("Initializing AppService with custom database configuration");
         
-        // Initialize crypto service first
-        let crypto_service = Arc::new(CryptoService::new());
+        // Use a default master password for encryption (in production, this should be user-provided)
+        let master_password = "hedgex_master_key_2025";
         
-        // Initialize logger with database placeholder
-        let logger = Arc::new(Mutex::new(Logger::new(
-            Arc::new(Mutex::new(
-                crate::db::Database::new_with_config(app_data_dir, db_config.clone())
-                    .await
-                    .map_err(|e| HedgeXError::DatabaseError(sqlx::Error::Configuration(e.into())))?
-            )),
-            None
-        )));
-        
-        // Initialize database service with custom config
-        let database_service = Arc::new(
-            DatabaseService::new_with_config(app_data_dir, db_config, Arc::clone(&logger), Arc::clone(&crypto_service))
-                .await?
+        // Initialize enhanced database service with custom config
+        let enhanced_database_service = Arc::new(
+            EnhancedDatabaseService::new_with_config(app_data_dir, db_config.clone(), master_password).await?
         );
         
-        // Update logger with the proper database reference
-        {
-            let mut logger_guard = logger.lock().await;
-            *logger_guard = Logger::new(database_service.get_database(), None);
-        }
+        // Run migrations
+        enhanced_database_service.run_migrations().await?;
+        
+        // Initialize authentication service
+        let auth_service = Arc::new(AuthService::new(Arc::clone(&enhanced_database_service)));
+        
+        // Initialize legacy crypto service for backward compatibility
+        let crypto_service = Arc::new(CryptoService::new());
+        
+        // Initialize legacy database service for backward compatibility
+        let database_service = Arc::new(
+            DatabaseService::new_with_config(
+                app_data_dir, 
+                db_config,
+                enhanced_database_service.get_logger(), 
+                Arc::clone(&crypto_service)
+            ).await?
+        );
         
         let service = Self {
             database_service,
-            logger,
+            enhanced_database_service: Arc::clone(&enhanced_database_service),
+            auth_service,
+            logger: enhanced_database_service.get_logger(),
             crypto_service,
             app_data_dir: app_data_dir.to_path_buf(),
         };
@@ -111,6 +120,16 @@ impl AppService {
     /// Get the database service
     pub fn get_database_service(&self) -> Arc<DatabaseService> {
         Arc::clone(&self.database_service)
+    }
+    
+    /// Get the enhanced database service
+    pub fn get_enhanced_database_service(&self) -> Arc<EnhancedDatabaseService> {
+        Arc::clone(&self.enhanced_database_service)
+    }
+    
+    /// Get the authentication service
+    pub fn get_auth_service(&self) -> Arc<AuthService> {
+        Arc::clone(&self.auth_service)
     }
     
     /// Get the logger
