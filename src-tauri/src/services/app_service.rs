@@ -1,6 +1,6 @@
 use crate::db::DatabaseConfig;
 use crate::error::{HedgeXError, Result};
-use crate::services::{DatabaseService, EnhancedDatabaseService, AuthService};
+use crate::services::{DatabaseService, EnhancedDatabaseService, AuthService, WebSocketManager};
 use crate::utils::{Logger, CryptoService};
 use std::path::Path;
 use std::sync::Arc;
@@ -12,6 +12,7 @@ pub struct AppService {
     database_service: Arc<DatabaseService>,
     enhanced_database_service: Arc<EnhancedDatabaseService>,
     auth_service: Arc<AuthService>,
+    websocket_manager: Arc<WebSocketManager>,
     logger: Arc<Mutex<Logger>>,
     crypto_service: Arc<CryptoService>,
     app_data_dir: std::path::PathBuf,
@@ -36,6 +37,9 @@ impl AppService {
         // Initialize authentication service
         let auth_service = Arc::new(AuthService::new(Arc::clone(&enhanced_database_service)));
         
+        // Initialize WebSocket manager
+        let websocket_manager = Arc::new(WebSocketManager::new(Arc::clone(&enhanced_database_service)));
+        
         // Initialize legacy crypto service for backward compatibility
         let crypto_service = Arc::new(CryptoService::new());
         
@@ -52,6 +56,7 @@ impl AppService {
             database_service,
             enhanced_database_service: Arc::clone(&enhanced_database_service),
             auth_service,
+            websocket_manager,
             logger: enhanced_database_service.get_logger(),
             crypto_service,
             app_data_dir: app_data_dir.to_path_buf(),
@@ -85,6 +90,9 @@ impl AppService {
         // Initialize authentication service
         let auth_service = Arc::new(AuthService::new(Arc::clone(&enhanced_database_service)));
         
+        // Initialize WebSocket manager
+        let websocket_manager = Arc::new(WebSocketManager::new(Arc::clone(&enhanced_database_service)));
+        
         // Initialize legacy crypto service for backward compatibility
         let crypto_service = Arc::new(CryptoService::new());
         
@@ -102,6 +110,7 @@ impl AppService {
             database_service,
             enhanced_database_service: Arc::clone(&enhanced_database_service),
             auth_service,
+            websocket_manager,
             logger: enhanced_database_service.get_logger(),
             crypto_service,
             app_data_dir: app_data_dir.to_path_buf(),
@@ -130,6 +139,11 @@ impl AppService {
     /// Get the authentication service
     pub fn get_auth_service(&self) -> Arc<AuthService> {
         Arc::clone(&self.auth_service)
+    }
+    
+    /// Get the WebSocket manager
+    pub fn get_websocket_manager(&self) -> Arc<WebSocketManager> {
+        Arc::clone(&self.websocket_manager)
     }
     
     /// Get the logger

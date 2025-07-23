@@ -228,11 +228,38 @@ async fn get_recent_trades(_state: tauri::State<'_, AppState>) -> Result<Vec<ser
     Ok(trades)
 }
 
+#[tauri::command]
+async fn get_market_data(state: tauri::State<'_, AppState>) -> Result<Vec<serde_json::Value>, String> {
+    // Get market data from WebSocket manager
+    let market_data = state.websocket_manager.get_all_cached_market_data().await;
+    
+    // Convert to JSON
+    let data: Vec<serde_json::Value> = market_data
+        .values()
+        .map(|md| {
+            serde_json::json!({
+                "symbol": md.symbol,
+                "instrument_token": md.instrument_token,
+                "ltp": md.ltp.to_string(),
+                "volume": md.volume,
+                "bid": md.bid.to_string(),
+                "ask": md.ask.to_string(),
+                "timestamp": md.timestamp.to_rfc3339(),
+                "change": md.change.map(|c| c.to_string()),
+                "change_percent": md.change_percent.map(|c| c.to_string()),
+            })
+        })
+        .collect();
+    
+    Ok(data)
+}
+
 // Application state that will be shared across commands
 struct AppState {
     app_service: Arc<services::AppService>,
     kite_client: Arc<api::KiteClient>,
     ticker_client: Arc<Mutex<api::KiteTickerClient>>,
+    websocket_manager: Arc<services::WebSocketManager>,
     // Legacy fields for backward compatibility
     db: Arc<Mutex<db::Database>>,
     logger: Arc<Mutex<utils::Logger>>,
@@ -290,11 +317,15 @@ pub fn run() {
                     let _ = logger_guard.info("HedgeX application started with enhanced services", None).await;
                 }
                 
+                // Get WebSocket manager
+                let websocket_manager = app_service.get_websocket_manager();
+                
                 // Create and manage application state
                 let state = AppState {
                     app_service,
                     kite_client,
                     ticker_client,
+                    websocket_manager,
                     // Legacy fields for backward compatibility
                     db: Arc::new(Mutex::new(
                         db::Database::new(&app_dir).await.expect("Failed to create legacy DB reference")
@@ -319,6 +350,7 @@ pub fn run() {
             start_trading,
             stop_trading,
             get_recent_trades,
+            get_market_data,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

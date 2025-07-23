@@ -29,7 +29,15 @@
   - Write integration tests with mock API responses for all endpoints
   - _Requirements: 3.1, 3.2, 3.3, 7.2, 7.3_
 
-- [ ] 4. Create WebSocket manager for real-time market data
+- [x] 4. Create WebSocket manager for real-time market data
+
+
+
+
+
+
+
+
   - Implement WebSocket connection management for Kite market data feed
   - Create market data subscription and broadcasting system
   - Add connection recovery with exponential backoff on disconnections
