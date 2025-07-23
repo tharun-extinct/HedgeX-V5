@@ -1,12 +1,16 @@
 use ring::{aead, rand, pbkdf2};
-use crate::error::{HedgeXError, Result};
+use crate::error::{HedgeXError, Result, ResultExt};
 use base64::{engine::general_purpose, Engine as _};
 use std::str;
+use std::sync::Arc;
+use std::time::{Duration, Instant};
 use ring::rand::SecureRandom;
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use argon2::password_hash::{SaltString, rand_core::OsRng};
 use std::num::NonZeroU32;
-use tracing::{debug, error, warn};
+use tracing::{debug, error, warn, info, span, Level, Instrument};
+use tokio::sync::RwLock;
+use std::collections::HashMap;
 
 const KEY_LEN: usize = 32; // 256 bits
 const NONCE_LEN: usize = 12; // 96 bits for ChaCha20-Poly1305
@@ -262,4 +266,172 @@ pub fn verify_password(password: &str, hash: &str) -> Result<bool> {
     
     debug!("Password verification completed: {}", is_valid);
     Ok(is_valid)
+}
+/// Enhanced CryptoService with key rotation and caching
+pub struct EnhancedCryptoService {
+    inner: Arc<CryptoService>,
+    key_cache: Arc<RwLock<HashMap<String, ([u8; KEY_LEN], Instant)>>>,
+    key_rotation_interval: Duration,
+}
+
+impl EnhancedCryptoService {
+    /// Create a new enhanced crypto service
+    pub fn new(master_password: &str) -> Result<Self> {
+        let salt = CryptoService::generate_salt()?;
+        Self::with_salt(master_password, &salt)
+    }
+    
+    /// Create with specific salt
+    pub fn with_salt(master_password: &str, salt: &[u8]) -> Result<Self> {
+        let inner = CryptoService::with_master_password(master_password, Some(salt))?;
+        
+        Ok(Self {
+            inner: Arc::new(inner),
+            key_cache: Arc::new(RwLock::new(HashMap::new())),
+            key_rotation_interval: Duration::from_secs(3600), // 1 hour default
+        })
+    }
+    
+    /// Set key rotation interval
+    pub fn with_key_rotation_interval(mut self, interval: Duration) -> Self {
+        self.key_rotation_interval = interval;
+        self
+    }
+    
+    /// Encrypt sensitive data with automatic key management
+    pub async fn encrypt_sensitive(&self, key_id: &str, plaintext: &str) -> Result<String> {
+        let key = self.get_or_create_key(key_id).await?;
+        
+        // Create a span for tracing
+        let span = span!(
+            Level::DEBUG,
+            "encrypt_sensitive",
+            key_id = %key_id
+        );
+        
+        // Instrument the encryption operation with the span
+        async move {
+            debug!("Encrypting sensitive data");
+            self.inner.encrypt_with_key(plaintext, &key)
+        }.instrument(span).await
+    }
+    
+    /// Decrypt sensitive data with automatic key management
+    pub async fn decrypt_sensitive(&self, key_id: &str, ciphertext: &str) -> Result<String> {
+        let key = self.get_or_create_key(key_id).await?;
+        
+        // Create a span for tracing
+        let span = span!(
+            Level::DEBUG,
+            "decrypt_sensitive",
+            key_id = %key_id
+        );
+        
+        // Instrument the decryption operation with the span
+        async move {
+            debug!("Decrypting sensitive data");
+            self.inner.decrypt_with_key(ciphertext, &key)
+        }.instrument(span).await
+    }
+    
+    /// Get or create a key for the given ID
+    async fn get_or_create_key(&self, key_id: &str) -> Result<[u8; KEY_LEN]> {
+        // First try to get from cache with read lock
+        {
+            let cache = self.key_cache.read().await;
+            if let Some((key, created_at)) = cache.get(key_id) {
+                // Check if key needs rotation
+                if created_at.elapsed() < self.key_rotation_interval {
+                    return Ok(*key);
+                }
+                // Key needs rotation, will create new below
+            }
+        }
+        
+        // Need to create or rotate key, acquire write lock
+        let mut cache = self.key_cache.write().await;
+        
+        // Check again in case another task created the key while we were waiting
+        if let Some((key, created_at)) = cache.get(key_id) {
+            if created_at.elapsed() < self.key_rotation_interval {
+                return Ok(*key);
+            }
+        }
+        
+        // Generate a new key
+        let new_key = CryptoService::generate_key()?;
+        
+        // Store in cache with current timestamp
+        cache.insert(key_id.to_string(), (new_key, Instant::now()));
+        
+        Ok(new_key)
+    }
+    
+    /// Encrypt API credentials securely
+    pub async fn encrypt_api_credentials(&self, api_key: &str, api_secret: &str) -> Result<(String, String)> {
+        let encrypted_key = self.encrypt_sensitive("api_key", api_key).await?;
+        let encrypted_secret = self.encrypt_sensitive("api_secret", api_secret).await?;
+        
+        Ok((encrypted_key, encrypted_secret))
+    }
+    
+    /// Decrypt API credentials
+    pub async fn decrypt_api_credentials(&self, encrypted_key: &str, encrypted_secret: &str) -> Result<(String, String)> {
+        let api_key = self.decrypt_sensitive("api_key", encrypted_key).await?;
+        let api_secret = self.decrypt_sensitive("api_secret", encrypted_secret).await?;
+        
+        Ok((api_key, api_secret))
+    }
+    
+    /// Securely hash a password with Argon2id
+    pub fn secure_hash_password(&self, password: &str) -> Result<String> {
+        // Use Argon2id with stronger parameters for sensitive credentials
+        let salt = SaltString::generate(&mut OsRng);
+        
+        // Configure Argon2id with memory=64MB, iterations=3, parallelism=4
+        let argon2 = Argon2::new(
+            argon2::Algorithm::Argon2id,
+            argon2::Version::V0x13,
+            argon2::Params::new(65536, 3, 4, None).unwrap()
+        );
+        
+        let password_hash = argon2.hash_password(password.as_bytes(), &salt)
+            .map_err(|e| HedgeXError::CryptoError(format!("Password hashing failed: {}", e)))?
+            .to_string();
+        
+        Ok(password_hash)
+    }
+    
+    /// Verify a password against a secure hash
+    pub fn verify_secure_password(&self, password: &str, hash: &str) -> Result<bool> {
+        let parsed_hash = PasswordHash::new(hash)
+            .map_err(|e| HedgeXError::CryptoError(format!("Invalid password hash: {}", e)))?;
+        
+        // Use the same Argon2id configuration
+        let argon2 = Argon2::new(
+            argon2::Algorithm::Argon2id,
+            argon2::Version::V0x13,
+            argon2::Params::new(65536, 3, 4, None).unwrap()
+        );
+        
+        let is_valid = argon2.verify_password(password.as_bytes(), &parsed_hash).is_ok();
+        
+        Ok(is_valid)
+    }
+    
+    /// Generate a secure token (e.g., for sessions)
+    pub fn generate_secure_token(&self) -> Result<String> {
+        let rng = rand::SystemRandom::new();
+        let mut token_bytes = vec![0u8; 32]; // 256-bit token
+        
+        rng.fill(&mut token_bytes)
+            .map_err(|_| HedgeXError::CryptoError("Failed to generate secure token".to_string()))?;
+            
+        Ok(general_purpose::URL_SAFE.encode(&token_bytes))
+    }
+    
+    /// Get the inner CryptoService
+    pub fn get_inner(&self) -> Arc<CryptoService> {
+        Arc::clone(&self.inner)
+    }
 }
