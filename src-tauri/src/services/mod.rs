@@ -4,6 +4,7 @@ pub mod enhanced_database_service;
 pub mod auth_service;
 pub mod kite_service;
 pub mod websocket_manager;
+pub mod strategy_service;
 #[cfg(test)]
 mod auth_service_test;
 #[cfg(test)]
@@ -16,3 +17,4 @@ pub use enhanced_database_service::EnhancedDatabaseService;
 pub use auth_service::AuthService;
 pub use kite_service::KiteService;
 pub use websocket_manager::{WebSocketManager, MarketData, SubscriptionMode, ConnectionStatus};
+pub use strategy_service::{StrategyService, CreateStrategyRequest, UpdateStrategyRequest, StrategyPerformance};

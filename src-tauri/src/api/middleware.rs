@@ -11,10 +11,10 @@ use std::sync::Arc;
 use tracing::{debug, error};
 
 /// Authentication middleware for protected routes
-pub async fn auth_middleware<B>(
+pub async fn auth_middleware(
     State(auth_service): State<Arc<AuthService>>,
-    mut request: Request<B>,
-    next: Next<B>,
+    mut request: Request,
+    next: Next,
 ) -> Response {
     // Extract token from Authorization header
     let token = match extract_token_from_header(&request) {

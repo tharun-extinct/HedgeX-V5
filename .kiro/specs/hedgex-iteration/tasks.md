@@ -30,14 +30,6 @@
   - _Requirements: 3.1, 3.2, 3.3, 7.2, 7.3_
 
 - [x] 4. Create WebSocket manager for real-time market data
-
-
-
-
-
-
-
-
   - Implement WebSocket connection management for Kite market data feed
   - Create market data subscription and broadcasting system
   - Add connection recovery with exponential backoff on disconnections
@@ -46,7 +38,12 @@
   - Write tests for WebSocket connection handling and data processing
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
 
-- [ ] 5. Develop high-frequency trading engine core
+- [x] 5. Develop high-frequency trading engine core
+
+
+
+
+
   - Create TradingEngine struct with order execution pipeline
   - Implement strategy parameter loading and validation from database
   - Build order placement logic with sub-100ms execution targets
@@ -56,6 +53,11 @@
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
 
 - [ ] 6. Implement strategy management and configuration system
+
+
+
+
+
   - Create strategy parameter CRUD operations in database
   - Build strategy validation and parameter constraint checking
   - Implement strategy enable/disable functionality with real-time updates

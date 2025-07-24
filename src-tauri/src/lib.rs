@@ -255,11 +255,12 @@ async fn get_market_data(state: tauri::State<'_, AppState>) -> Result<Vec<serde_
 }
 
 // Application state that will be shared across commands
-struct AppState {
+pub struct AppState {
     app_service: Arc<services::AppService>,
     kite_client: Arc<api::KiteClient>,
     ticker_client: Arc<Mutex<api::KiteTickerClient>>,
     websocket_manager: Arc<services::WebSocketManager>,
+    strategy_service: Arc<services::StrategyService>,
     // Legacy fields for backward compatibility
     db: Arc<Mutex<db::Database>>,
     logger: Arc<Mutex<utils::Logger>>,
@@ -302,7 +303,7 @@ pub fn run() {
                 };
                 
                 // Initialize Kite API client
-                let kite_client = Arc::new(api::KiteClient::new());
+                let kite_client = Arc::new(api::KiteClient::new("dummy_api_key").unwrap());
                 
                 // Initialize ticker client
                 let ticker_client = Arc::new(Mutex::new(api::KiteTickerClient::new()));
@@ -320,12 +321,25 @@ pub fn run() {
                 // Get WebSocket manager
                 let websocket_manager = app_service.get_websocket_manager();
                 
+                // Initialize strategy service
+                let strategy_service = match services::StrategyService::new(app_service.get_enhanced_database_service()).await {
+                    Ok(service) => {
+                        println!("StrategyService initialized successfully");
+                        Arc::new(service)
+                    },
+                    Err(e) => {
+                        eprintln!("Failed to initialize StrategyService: {}", e);
+                        std::process::exit(1);
+                    }
+                };
+                
                 // Create and manage application state
                 let state = AppState {
                     app_service,
                     kite_client,
                     ticker_client,
                     websocket_manager,
+                    strategy_service,
                     // Legacy fields for backward compatibility
                     db: Arc::new(Mutex::new(
                         db::Database::new(&app_dir).await.expect("Failed to create legacy DB reference")
