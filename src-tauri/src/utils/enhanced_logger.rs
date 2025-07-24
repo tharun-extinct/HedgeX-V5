@@ -110,8 +110,8 @@ impl EnhancedLogger {
     
     /// Set the user ID
     pub async fn set_user_id(&mut self, user_id: String) {
-        self.user_id = Some(user_id);
         info!(user_id = %user_id, "User ID set");
+        self.user_id = Some(user_id);
     }
     
     /// Clear the user ID
@@ -359,7 +359,7 @@ impl EnhancedLogger {
             data.insert("quantity".to_string(), Value::Number(q.into()));
         }
         if let Some(p) = price {
-            data.insert("price".to_string(), Value::Number(serde_json::Number::from_f64(p).unwrap_or_default()));
+            data.insert("price".to_string(), Value::Number(serde_json::Number::from_f64(p).unwrap_or_else(|| serde_json::Number::from(0))));
         }
         
         if let Some(additional) = additional_data {
@@ -421,29 +421,27 @@ impl EnhancedLogger {
                 LogLevel::Critical => 4,
             };
             
-            sqlx::query_as!(
-                SystemLog,
+            sqlx::query_as::<_, SystemLog>(
                 r#"
-                SELECT id, user_id, log_level as "log_level: LogLevel", message, created_at, context
+                SELECT id, user_id, log_level, message, created_at, context
                 FROM system_logs 
                 WHERE log_level >= ? 
                 ORDER BY created_at DESC 
                 LIMIT ?
-                "#,
-                level_int,
-                limit
+                "#
             )
+            .bind(level_int)
+            .bind(limit)
         } else {
-            sqlx::query_as!(
-                SystemLog,
+            sqlx::query_as::<_, SystemLog>(
                 r#"
-                SELECT id, user_id, log_level as "log_level: LogLevel", message, created_at, context
+                SELECT id, user_id, log_level, message, created_at, context
                 FROM system_logs 
                 ORDER BY created_at DESC 
                 LIMIT ?
-                "#,
-                limit
+                "#
             )
+            .bind(limit)
         };
         
         let logs = query.fetch_all(pool).await
@@ -457,13 +455,13 @@ impl EnhancedLogger {
         let db = self.db.lock().await;
         let pool = db.get_pool();
         
-        let result = sqlx::query!(
+        let result = sqlx::query(
             r#"
             DELETE FROM system_logs
             WHERE created_at < datetime('now', ?);
-            "#,
-            format!("-{} days", days_to_keep)
+            "#
         )
+        .bind(&format!("-{} days", days_to_keep))
         .execute(pool)
         .await
         .map_err(|e| HedgeXError::DatabaseError(e))?;
@@ -479,17 +477,16 @@ impl EnhancedLogger {
         let db = self.db.lock().await;
         let pool = db.get_pool();
         
-        let logs = sqlx::query_as!(
-            SystemLog,
+        let logs = sqlx::query_as::<_, SystemLog>(
             r#"
-            SELECT id, user_id, log_level as "log_level: LogLevel", message, created_at, context
+            SELECT id, user_id, log_level, message, created_at, context
             FROM system_logs 
             WHERE created_at BETWEEN ? AND ?
             ORDER BY created_at ASC
-            "#,
-            from_date,
-            to_date
+            "#
         )
+        .bind(&from_date)
+        .bind(&to_date)
         .fetch_all(pool)
         .await
         .map_err(|e| HedgeXError::DatabaseError(e))?;

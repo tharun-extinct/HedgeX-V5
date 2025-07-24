@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { cn } from '../lib/utils';
-import { TrendingUp, Shield, Zap, Eye, EyeOff, Check, X } from 'lucide-react';
-import { useAuth } from '../App';
+import { TrendingUp, Shield, Zap, Eye, EyeOff, Check, X, AlertCircle } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 // Check if we're running in Tauri environment
 const isTauri = typeof window !== 'undefined' && '__TAURI__' in window;
@@ -17,10 +17,25 @@ const SignupPage: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [acceptTerms, setAcceptTerms] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<{ [key: string]: string }>({});
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { register, isLoading, error, clearError, isAuthenticated } = useAuth();
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard');
+    }
+  }, [isAuthenticated, navigate]);
+
+  // Clear errors when user starts typing
+  useEffect(() => {
+    if (error) {
+      clearError();
+    }
+    setValidationErrors({});
+  }, [fullName, email, username, password, confirmPassword, clearError, error]);
 
   // Password strength validation
   const getPasswordStrength = (password: string) => {
@@ -38,68 +53,78 @@ const SignupPage: React.FC = () => {
 
   const passwordStrength = getPasswordStrength(password);
 
+  // Email validation
+  const isValidEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  // Username validation
+  const isValidUsername = (username: string) => {
+    const usernameRegex = /^[a-zA-Z0-9_.-]+$/;
+    return usernameRegex.test(username) && username.length >= 3 && username.length <= 50;
+  };
+
+  // Validate form inputs
+  const validateForm = () => {
+    const errors: { [key: string]: string } = {};
+
+    if (!fullName.trim()) {
+      errors.fullName = 'Full name is required';
+    } else if (fullName.trim().length < 2) {
+      errors.fullName = 'Full name must be at least 2 characters';
+    }
+
+    if (!email.trim()) {
+      errors.email = 'Email is required';
+    } else if (!isValidEmail(email)) {
+      errors.email = 'Please enter a valid email address';
+    }
+
+    if (!username.trim()) {
+      errors.username = 'Username is required';
+    } else if (!isValidUsername(username)) {
+      errors.username = 'Username must be 3-50 characters and contain only letters, numbers, dots, hyphens, and underscores';
+    }
+
+    if (!password) {
+      errors.password = 'Password is required';
+    } else if (passwordStrength.score < 4) {
+      errors.password = 'Password must meet all security requirements';
+    }
+
+    if (!confirmPassword) {
+      errors.confirmPassword = 'Please confirm your password';
+    } else if (password !== confirmPassword) {
+      errors.confirmPassword = 'Passwords do not match';
+    }
+
+    if (!acceptTerms) {
+      errors.terms = 'You must accept the terms of service';
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Basic validation
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
+    if (!validateForm()) {
       return;
     }
-
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters');
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
 
     try {
-      if (isTauri) {
-        // Import invoke dynamically only when in Tauri environment
-        const { invoke } = await import('@tauri-apps/api/core');
-        
-        const result = await invoke<{ success: boolean; message?: string; token?: string }>('create_user', {
-          fullName,
-          email,
-          username,
-          password
-        });
-        
-        if (result.success) {
-          if (result.token) {
-            // Login the user immediately using the returned token
-            login(result.token);
-            navigate('/dashboard');
-          } else {
-            // Fallback to login page if no token is returned
-            navigate('/login', { state: { message: 'Account created successfully. Please log in.' } });
-          }
-        } else {
-          setError(result.message || 'Failed to create account');
-        }
-      } else {
-        // Fallback for web browser environment (development/testing)
-        console.warn('Running in web browser - Tauri APIs not available. Simulating signup...');
-        
-        // Simulate API call delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // For demo purposes, simulate successful signup with immediate login
-        const mockSessionToken = `mock-session-${Date.now()}`;
-        login(mockSessionToken);
-        navigate('/dashboard');
-      }
+      await register({
+        full_name: fullName,
+        email,
+        username,
+        password,
+      });
+      navigate('/dashboard');
     } catch (err) {
-      console.error('Signup failed:', err);
-      if (isTauri) {
-        setError('Failed to create account. Please try again.');
-      } else {
-        setError('Running in web browser mode. Please use the Tauri desktop app for full functionality.');
-      }
-    } finally {
-      setIsLoading(false);
+      // Error is handled by the AuthContext
+      console.error('Registration failed:', err);
     }
   };
 

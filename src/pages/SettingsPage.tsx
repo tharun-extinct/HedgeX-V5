@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Settings, Shield, Eye, EyeOff, CheckCircle, AlertCircle, Palette, Bell, Zap } from 'lucide-react';
+import ApiCredentialsForm from '../components/ApiCredentialsForm';
 
 interface ApiSettings {
   apiKey: string;
@@ -197,122 +198,15 @@ const SettingsPage: React.FC = () => {
 
         {/* API Settings Tab */}
         {activeTab === 'api' && (
-          <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
-            <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 rounded-t-lg">
-              <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl flex items-center justify-center">
-                  <Shield className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <CardTitle className="text-xl font-bold text-slate-900">Zerodha Kite API Configuration</CardTitle>
-                  <CardDescription className="text-slate-600">
-                    Configure your Zerodha Kite API credentials for trading
-                  </CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="p-6 space-y-6">
-              <div className="space-y-2">
-                <label htmlFor="apiKey" className="text-sm font-semibold text-slate-700 block">
-                  API Key
-                </label>
-                <div className="relative">
-                  <input
-                    id="apiKey"
-                    type={isApiKeyMasked ? 'password' : 'text'}
-                    className="flex h-12 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all duration-200"
-                    placeholder="Enter your Zerodha API key"
-                    value={apiSettings.apiKey}
-                    onChange={handleApiKeyChange}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setIsApiKeyMasked(!isApiKeyMasked)}
-                    className="absolute inset-y-0 right-0 flex items-center px-4 text-slate-400 hover:text-slate-600 transition-colors"
-                  >
-                    {isApiKeyMasked ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
-                  </button>
-                </div>
-                <p className="text-sm text-slate-500">
-                  Your Zerodha Kite API key from the Kite Connect dashboard
-                </p>
-              </div>
-              
-              <div className="space-y-2">
-                <label htmlFor="apiSecret" className="text-sm font-semibold text-slate-700 block">
-                  API Secret
-                </label>
-                <div className="relative">
-                  <input
-                    id="apiSecret"
-                    type={isApiSecretMasked ? 'password' : 'text'}
-                    className="flex h-12 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all duration-200"
-                    placeholder="Enter your Zerodha API secret"
-                    value={apiSettings.apiSecret}
-                    onChange={handleApiSecretChange}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setIsApiSecretMasked(!isApiSecretMasked)}
-                    className="absolute inset-y-0 right-0 flex items-center px-4 text-slate-400 hover:text-slate-600 transition-colors"
-                  >
-                    {isApiSecretMasked ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
-                  </button>
-                </div>
-                <p className="text-sm text-slate-500">
-                  Your Zerodha Kite API secret from the Kite Connect dashboard
-                </p>
-              </div>
-
-              {apiSettings.lastVerified && (
-                <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-                  <div className="flex items-center space-x-2">
-                    <CheckCircle className="w-5 h-5 text-green-600" />
-                    <span className="text-sm font-medium text-green-800">
-                      Last verified: {new Date(apiSettings.lastVerified).toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-            <CardFooter className="flex justify-between bg-slate-50 rounded-b-lg p-6">
-              <Button 
-                variant="outline"
-                onClick={handleVerifyApiCredentials}
-                disabled={isVerifying || isSaving}
-                className="flex items-center space-x-2"
-              >
-                {isVerifying ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin"></div>
-                    <span>Verifying...</span>
-                  </>
-                ) : (
-                  <>
-                    <Shield className="w-4 h-4" />
-                    <span>Verify Credentials</span>
-                  </>
-                )}
-              </Button>
-              <Button 
-                onClick={handleSaveApiSettings}
-                disabled={isVerifying || isSaving}
-                className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white flex items-center space-x-2"
-              >
-                {isSaving ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                    <span>Saving...</span>
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="w-4 h-4" />
-                    <span>Save Settings</span>
-                  </>
-                )}
-              </Button>
-            </CardFooter>
-          </Card>
+          <div className="space-y-6">
+            <ApiCredentialsForm 
+              className="shadow-xl border-0 bg-white/80 backdrop-blur-sm"
+              onSave={() => {
+                setSuccessMessage('API credentials saved successfully!');
+                setTimeout(() => setSuccessMessage(null), 5000);
+              }}
+            />
+          </div>
         )}
 
         {/* App Settings Tab */}

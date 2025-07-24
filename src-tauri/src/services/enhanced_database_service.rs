@@ -1,6 +1,7 @@
 use crate::db::{Database, DatabaseConfig, DatabaseStats};
 use crate::error::{HedgeXError, Result, ResultExt};
-use crate::utils::{EnhancedLogger, EnhancedCryptoService, DatabaseManager};
+use crate::utils::{EnhancedLogger, EnhancedCryptoService};
+use crate::utils::database_utils::DatabaseManager;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -40,7 +41,7 @@ impl EnhancedDatabaseService {
             info!("Initializing EnhancedDatabaseService");
             
             // Initialize database manager
-            let db_manager = DatabaseManager::new_with_config(app_data_dir, config).await?;
+            let db_manager: DatabaseManager = DatabaseManager::new_with_config(app_data_dir, config).await?;
             let db_manager = Arc::new(db_manager);
             
             // Initialize crypto service

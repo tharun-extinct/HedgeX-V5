@@ -182,7 +182,7 @@ impl Database {
         if let Some(migrator) = &self.migrator {
             info!("Running pending migrations...");
             migrator.run(&self.pool).await
-                .map_err(|e| HedgeXError::DatabaseError(e))?;
+                .map_err(|e| HedgeXError::DatabaseError(sqlx::Error::Migrate(Box::new(e))))?;
             info!("Migrations completed successfully");
         } else {
             warn!("No migrator available to run migrations");

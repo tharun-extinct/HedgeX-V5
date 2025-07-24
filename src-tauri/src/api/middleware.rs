@@ -1,6 +1,7 @@
 use crate::error::{ApiResult, HedgeXError, Result};
 use crate::services::auth_service::AuthService;
 use axum::{
+    body::Body,
     extract::State,
     http::{Request, StatusCode},
     middleware::Next,
@@ -13,7 +14,7 @@ use tracing::{debug, error};
 /// Authentication middleware for protected routes
 pub async fn auth_middleware(
     State(auth_service): State<Arc<AuthService>>,
-    mut request: Request,
+    mut request: Request<Body>,
     next: Next,
 ) -> Response {
     // Extract token from Authorization header
@@ -52,7 +53,7 @@ pub async fn auth_middleware(
 }
 
 /// Extract token from Authorization header
-fn extract_token_from_header<B>(request: &Request<B>) -> Option<String> {
+fn extract_token_from_header(request: &Request<Body>) -> Option<String> {
     request
         .headers()
         .get("Authorization")
@@ -67,7 +68,7 @@ fn extract_token_from_header<B>(request: &Request<B>) -> Option<String> {
 }
 
 /// Extract user ID from request extensions
-pub fn extract_user_id<B>(request: &Request<B>) -> Result<String> {
+pub fn extract_user_id(request: &Request<Body>) -> Result<String> {
     request
         .extensions()
         .get::<String>()

@@ -682,7 +682,7 @@ impl StrategyService {
             .bind(&id)
             .bind(user_id)
             .bind(strategy_id)
-            .bind(metrics.date.and_hms_opt(0, 0, 0).unwrap())
+            .bind(metrics.date)
             .bind(metrics.total_trades)
             .bind(metrics.profitable_trades)
             .bind(metrics.total_pnl.to_f64().unwrap_or(0.0))
@@ -835,7 +835,8 @@ mod tests {
             .unwrap();
             
         // Create required tables
-        let pool = db_service.get_database().get_pool();
+        let database = db_service.get_database();
+        let pool = database.get_pool();
         
         // Users table
         sqlx::query(
@@ -1272,7 +1273,7 @@ mod tests {
         // Create test performance metrics
         let metrics = PerformanceMetrics {
             user_id: "test_user".to_string(),
-            date: Utc::now().date_naive(),
+            date: Utc::now(),
             total_trades: 10,
             profitable_trades: 6,
             total_pnl: Decimal::from_str("1500.50").unwrap(),

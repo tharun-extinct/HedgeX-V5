@@ -507,21 +507,21 @@ impl WebSocketManager {
         db_service: &Arc<EnhancedDatabaseService>,
         market_data: &MarketData,
     ) -> Result<()> {
-        let pool = db_service.get_pool();
+        let pool = db_service.get_database().get_pool();
         
-        sqlx::query!(
+        sqlx::query(
             r#"
             INSERT OR REPLACE INTO market_data_cache 
             (symbol, ltp, volume, bid, ask, updated_at)
             VALUES (?, ?, ?, ?, ?, ?)
-            "#,
-            market_data.symbol,
-            market_data.ltp.to_string(),
-            market_data.volume as i64,
-            market_data.bid.to_string(),
-            market_data.ask.to_string(),
-            market_data.timestamp
+            "#
         )
+        .bind(&market_data.symbol)
+        .bind(&market_data.ltp.to_string())
+        .bind(market_data.volume as i64)
+        .bind(&market_data.bid.to_string())
+        .bind(&market_data.ask.to_string())
+        .bind(&market_data.timestamp)
         .execute(pool)
         .await
         .map_err(|e| HedgeXError::DatabaseError(e))?;
@@ -671,9 +671,9 @@ impl WebSocketManager {
     }
     
     /// Start automatic reconnection monitoring
-    pub async fn start_reconnection_monitor(&self) {
+    pub async fn start_reconnection_monitor(self: Arc<Self>) {
         let status = Arc::clone(&self.status);
-        let ws_manager = self as *const Self;
+        let ws_manager = Arc::clone(&self);
         
         tokio::spawn(async move {
             let mut check_interval = tokio::time::interval(Duration::from_secs(30));
@@ -689,12 +689,8 @@ impl WebSocketManager {
                 if current_status == ConnectionStatus::Disconnected || current_status == ConnectionStatus::Failed {
                     warn!("WebSocket connection lost, attempting to reconnect");
                     
-                    // SAFETY: This is safe because we're accessing the WebSocketManager
-                    // through a raw pointer within the same async context
-                    unsafe {
-                        if let Err(e) = (*ws_manager).reconnect_with_backoff().await {
-                            error!("Automatic reconnection failed: {}", e);
-                        }
+                    if let Err(e) = ws_manager.reconnect_with_backoff().await {
+                        error!("Automatic reconnection failed: {}", e);
                     }
                 }
             }

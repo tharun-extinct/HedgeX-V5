@@ -210,7 +210,7 @@ impl Logger {
             data.insert("quantity".to_string(), Value::Number(q.into()));
         }
         if let Some(p) = price {
-            data.insert("price".to_string(), Value::Number(serde_json::Number::from_f64(p).unwrap_or_default()));
+            data.insert("price".to_string(), Value::Number(serde_json::Number::from_f64(p).unwrap_or_else(|| serde_json::Number::from(0))));
         }
         
         if let Some(additional) = additional_data {
@@ -272,29 +272,27 @@ impl Logger {
                 LogLevel::Critical => 4,
             };
             
-            sqlx::query_as!(
-                SystemLog,
+            sqlx::query_as::<_, SystemLog>(
                 r#"
-                SELECT id, user_id, log_level as "log_level: LogLevel", message, created_at, context
+                SELECT id, user_id, log_level, message, created_at, context
                 FROM system_logs 
                 WHERE log_level >= ? 
                 ORDER BY created_at DESC 
                 LIMIT ?
-                "#,
-                level_int,
-                limit
+                "#
             )
+            .bind(level_int)
+            .bind(limit)
         } else {
-            sqlx::query_as!(
-                SystemLog,
+            sqlx::query_as::<_, SystemLog>(
                 r#"
-                SELECT id, user_id, log_level as "log_level: LogLevel", message, created_at, context
+                SELECT id, user_id, log_level, message, created_at, context
                 FROM system_logs 
                 ORDER BY created_at DESC 
                 LIMIT ?
-                "#,
-                limit
+                "#
             )
+            .bind(limit)
         };
         
         let logs = query.fetch_all(pool).await

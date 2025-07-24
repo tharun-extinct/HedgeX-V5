@@ -75,10 +75,10 @@ impl AuthService {
             
             // Check if username already exists
             let pool = self.db_service.get_database().get_pool();
-            let existing_user = sqlx::query!(
-                "SELECT id FROM users WHERE username = ?",
-                request.username
+            let existing_user = sqlx::query(
+                "SELECT id FROM users WHERE username = ?"
             )
+            .bind(&request.username)
             .fetch_optional(pool)
             .await?;
             
@@ -94,13 +94,13 @@ impl AuthService {
             let now = Utc::now();
             
             // Insert user into database
-            sqlx::query!(
-                "INSERT INTO users (id, username, password_hash, created_at) VALUES (?, ?, ?, ?)",
-                user_id,
-                request.username,
-                password_hash,
-                now
+            sqlx::query(
+                "INSERT INTO users (id, username, password_hash, created_at) VALUES (?, ?, ?, ?)"
             )
+            .bind(&user_id)
+            .bind(&request.username)
+            .bind(&password_hash)
+            .bind(&now)
             .execute(pool)
             .await?;
             
@@ -126,10 +126,10 @@ impl AuthService {
             
             // Get user from database
             let pool = self.db_service.get_database().get_pool();
-            let user = sqlx::query!(
-                "SELECT id, password_hash FROM users WHERE username = ?",
-                request.username
+            let user = sqlx::query_as::<_, (String, String)>(
+                "SELECT id, password_hash FROM users WHERE username = ?"
             )
+            .bind(&request.username)
             .fetch_optional(pool)
             .await?;
             
@@ -142,7 +142,7 @@ impl AuthService {
             };
             
             // Verify password
-            let is_valid = self.db_service.verify_password(&request.password, &user.password_hash)?;
+            let is_valid = self.db_service.verify_password(&request.password, &user.1)?;
             
             if !is_valid {
                 error!("Login failed: Invalid password for user: {}", request.username);
@@ -154,21 +154,21 @@ impl AuthService {
             let expires_at = Utc::now() + Duration::hours(24);
             
             // Store session token
-            sqlx::query!(
-                "INSERT INTO session_tokens (token, user_id, expires_at) VALUES (?, ?, ?)",
-                token,
-                user.id,
-                expires_at
+            sqlx::query(
+                "INSERT INTO session_tokens (token, user_id, expires_at) VALUES (?, ?, ?)"
             )
+            .bind(&token)
+            .bind(&user.0)
+            .bind(&expires_at)
             .execute(pool)
             .await?;
             
             // Update last login time
-            sqlx::query!(
-                "UPDATE users SET last_login = ? WHERE id = ?",
-                Utc::now(),
-                user.id
+            sqlx::query(
+                "UPDATE users SET last_login = ? WHERE id = ?"
             )
+            .bind(&Utc::now())
+            .bind(&user.0)
             .execute(pool)
             .await?;
             
@@ -193,10 +193,10 @@ impl AuthService {
             
             // Get session from database
             let pool = self.db_service.get_database().get_pool();
-            let session = sqlx::query!(
-                "SELECT user_id, expires_at, is_active FROM session_tokens WHERE token = ?",
-                token
+            let session = sqlx::query_as::<_, (String, chrono::DateTime<chrono::Utc>, bool)>(
+                "SELECT user_id, expires_at, is_active FROM session_tokens WHERE token = ?"
             )
+            .bind(token)
             .fetch_optional(pool)
             .await?;
             
@@ -209,30 +209,29 @@ impl AuthService {
             };
             
             // Check if session is active
-            if !session.is_active {
+            if !session.2 {
                 debug!("Session validation failed: Token is inactive");
                 return Err(HedgeXError::SessionError);
             }
             
             // Check if session is expired
-            let expires_at: DateTime<Utc> = session.expires_at.parse().unwrap_or_else(|_| Utc::now());
-            if expires_at < Utc::now() {
+            if session.1 < Utc::now() {
                 debug!("Session validation failed: Token expired");
                 return Err(HedgeXError::SessionError);
             }
             
             // Update last used time
-            sqlx::query!(
-                "UPDATE session_tokens SET last_used = ? WHERE token = ?",
-                Utc::now(),
-                token
+            sqlx::query(
+                "UPDATE session_tokens SET last_used = ? WHERE token = ?"
             )
+            .bind(&Utc::now())
+            .bind(token)
             .execute(pool)
             .await?;
             
             debug!("Session validation successful");
             
-            Ok(session.user_id)
+            Ok(session.0)
         }
         .instrument(span)
         .await
@@ -247,10 +246,10 @@ impl AuthService {
             
             // Invalidate session token
             let pool = self.db_service.get_database().get_pool();
-            let result = sqlx::query!(
-                "UPDATE session_tokens SET is_active = false WHERE token = ?",
-                token
+            let result = sqlx::query(
+                "UPDATE session_tokens SET is_active = false WHERE token = ?"
             )
+            .bind(token)
             .execute(pool)
             .await?;
             
@@ -268,7 +267,7 @@ impl AuthService {
     }
 
     /// Store API credentials
-    pub async fn store_api_credentials(&self, user_id: &str, credentials: ApiCredentialsRequest) -> Result<()> {
+    pub async fn store_api_credentials(&self, user_id: &str, credentials: crate::models::auth::ApiCredentials) -> Result<()> {
         let span = span!(Level::INFO, "store_api_credentials", user_id = %user_id);
         
         async move {
@@ -283,7 +282,8 @@ impl AuthService {
             let pool = self.db_service.get_database().get_pool();
             
             // Check if user exists
-            let user = sqlx::query!("SELECT id FROM users WHERE id = ?", user_id)
+            let user = sqlx::query("SELECT id FROM users WHERE id = ?")
+                .bind(user_id)
                 .fetch_optional(pool)
                 .await?;
                 
@@ -292,18 +292,22 @@ impl AuthService {
             }
             
             // Insert or update API credentials
-            sqlx::query!(
+            sqlx::query(
                 r#"
-                INSERT INTO api_credentials (user_id, api_key, api_secret)
-                VALUES (?, ?, ?)
+                INSERT INTO api_credentials (user_id, api_key, api_secret, access_token, access_token_expiry)
+                VALUES (?, ?, ?, ?, ?)
                 ON CONFLICT(user_id) DO UPDATE SET
                     api_key = excluded.api_key,
-                    api_secret = excluded.api_secret
-                "#,
-                user_id,
-                encrypted_key,
-                encrypted_secret
+                    api_secret = excluded.api_secret,
+                    access_token = excluded.access_token,
+                    access_token_expiry = excluded.access_token_expiry
+                "#
             )
+            .bind(user_id)
+            .bind(&encrypted_key)
+            .bind(&encrypted_secret)
+            .bind(&credentials.access_token)
+            .bind(&credentials.access_token_expiry)
             .execute(pool)
             .await?;
             
@@ -316,7 +320,7 @@ impl AuthService {
     }
 
     /// Get API credentials
-    pub async fn get_api_credentials(&self, user_id: &str) -> Result<ApiCredentials> {
+    pub async fn get_api_credentials(&self, user_id: &str) -> Result<crate::models::auth::ApiCredentials> {
         let span = span!(Level::INFO, "get_api_credentials", user_id = %user_id);
         
         async move {
@@ -324,10 +328,10 @@ impl AuthService {
             
             // Get encrypted credentials from database
             let pool = self.db_service.get_database().get_pool();
-            let credentials = sqlx::query!(
-                "SELECT api_key, api_secret FROM api_credentials WHERE user_id = ?",
-                user_id
+            let credentials = sqlx::query_as::<_, (String, String, Option<String>, Option<chrono::DateTime<chrono::Utc>>)>(
+                "SELECT api_key, api_secret, access_token, access_token_expiry FROM api_credentials WHERE user_id = ?"
             )
+            .bind(user_id)
             .fetch_optional(pool)
             .await?;
             
@@ -340,15 +344,67 @@ impl AuthService {
             
             // Decrypt credentials
             let (api_key, api_secret) = self.db_service
-                .decrypt_api_credentials(&credentials.api_key, &credentials.api_secret)
+                .decrypt_api_credentials(&credentials.0, &credentials.1)
                 .await?;
             
             info!("API credentials retrieved successfully for user: {}", user_id);
             
-            Ok(ApiCredentials {
+            Ok(crate::models::auth::ApiCredentials {
+                user_id: user_id.to_string(),
                 api_key,
                 api_secret,
+                access_token: credentials.2,
+                access_token_expiry: credentials.3,
             })
+        }
+        .instrument(span)
+        .await
+    }
+
+    /// Update API credentials
+    pub async fn update_api_credentials(&self, user_id: &str, credentials: crate::models::auth::ApiCredentials) -> Result<()> {
+        let span = span!(Level::INFO, "update_api_credentials", user_id = %user_id);
+        
+        async move {
+            info!("Updating API credentials for user: {}", user_id);
+            
+            // Encrypt API credentials
+            let (encrypted_key, encrypted_secret) = self.db_service
+                .encrypt_api_credentials(&credentials.api_key, &credentials.api_secret)
+                .await?;
+            
+            // Update in database
+            let pool = self.db_service.get_database().get_pool();
+            
+            // Check if user exists
+            let user = sqlx::query("SELECT id FROM users WHERE id = ?")
+                .bind(user_id)
+                .fetch_optional(pool)
+                .await?;
+                
+            if user.is_none() {
+                return Err(HedgeXError::NotFoundError("User not found".to_string()));
+            }
+            
+            // Update API credentials
+            sqlx::query(
+                r#"
+                UPDATE api_credentials 
+                SET api_key = ?, api_secret = ?, access_token = ?, access_token_expiry = ?
+                WHERE user_id = ?
+                "#
+            )
+            .bind(&encrypted_key)
+            .bind(&encrypted_secret)
+            .bind(&credentials.access_token)
+            .bind(&credentials.access_token_expiry)
+            .bind(user_id)
+            .execute(pool)
+            .await?;
+            
+            info!("API credentials updated successfully for user: {}", user_id);
+            
+            Ok(())
         }
         .instrument(span)
         .await
@@ -363,10 +419,10 @@ impl AuthService {
             
             // Get user from database
             let pool = self.db_service.get_database().get_pool();
-            let user = sqlx::query!(
-                "SELECT id, username, created_at, last_login FROM users WHERE id = ?",
-                user_id
+            let user = sqlx::query_as::<_, (String, String, chrono::DateTime<chrono::Utc>, Option<chrono::DateTime<chrono::Utc>>)>(
+                "SELECT id, username, created_at, last_login FROM users WHERE id = ?"
             )
+            .bind(user_id)
             .fetch_optional(pool)
             .await?;
             
@@ -377,18 +433,13 @@ impl AuthService {
                 }
             };
             
-            // Parse dates
-            let created_at: DateTime<Utc> = user.created_at.parse().unwrap_or_else(|_| Utc::now());
-            let last_login: Option<DateTime<Utc>> = user.last_login
-                .map(|dt| dt.parse().unwrap_or_else(|_| Utc::now()));
-            
             info!("User information retrieved successfully for user: {}", user_id);
             
             Ok(UserInfo {
-                id: user.id,
-                username: user.username,
-                created_at,
-                last_login,
+                id: user.0,
+                username: user.1,
+                created_at: user.2,
+                last_login: user.3,
             })
         }
         .instrument(span)
@@ -446,10 +497,10 @@ impl AuthService {
             info!("Cleaning up expired sessions");
             
             let pool = self.db_service.get_database().get_pool();
-            let result = sqlx::query!(
-                "DELETE FROM session_tokens WHERE expires_at < ?",
-                Utc::now()
+            let result = sqlx::query(
+                "DELETE FROM session_tokens WHERE expires_at < ?"
             )
+            .bind(&Utc::now())
             .execute(pool)
             .await?;
             

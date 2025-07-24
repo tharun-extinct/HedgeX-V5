@@ -4,6 +4,7 @@ use crate::models::trading::{
 };
 use crate::services::enhanced_database_service::EnhancedDatabaseService;
 use rust_decimal::{Decimal, prelude::FromStr};
+use num_traits::ToPrimitive;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -553,7 +554,8 @@ impl StrategyManager {
         
         // Check if symbol is in active stock selection
         let selections = self.stock_selections.read().await;
-        let user_stocks = selections.get(&self.user_id).unwrap_or(&Vec::new());
+        let empty_vec = Vec::new();
+        let user_stocks = selections.get(&self.user_id).unwrap_or(&empty_vec);
         
         Ok(user_stocks.iter().any(|s| s.symbol == symbol && s.is_active))
     }

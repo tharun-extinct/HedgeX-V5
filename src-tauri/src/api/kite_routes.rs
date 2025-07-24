@@ -20,7 +20,7 @@ use std::sync::Arc;
 use tracing::{debug, error, info, warn, instrument};
 
 /// Kite API routes
-pub fn kite_routes() -> Router {
+pub fn kite_routes(kite_service: Arc<KiteService>) -> Router {
     Router::new()
         .route("/session/url", get(generate_session_url))
         .route("/session/token", post(generate_session))
@@ -39,6 +39,7 @@ pub fn kite_routes() -> Router {
         .route("/instruments/:exchange", get(get_instruments_by_exchange))
         .route("/quote", get(get_quote))
         .route("/historical", post(get_historical_data))
+        .with_state(kite_service)
 }
 
 /// Request for generating session URL

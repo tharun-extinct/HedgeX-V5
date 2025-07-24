@@ -130,55 +130,379 @@ async fn save_api_credentials(
 }
 
 #[tauri::command]
-async fn get_stock_list(_state: tauri::State<'_, AppState>) -> Result<Vec<serde_json::Value>, String> {
-    // In a real implementation, we would:
-    // 1. Retrieve NIFTY 50 stocks from Zerodha or database
+async fn get_stock_list(state: tauri::State<'_, AppState>) -> Result<Vec<serde_json::Value>, String> {
+    let user_id = "demo_user"; // TODO: Get from auth context
     
-    let stocks = vec![
-        serde_json::json!({
-            "symbol": "RELIANCE",
-            "name": "Reliance Industries Ltd",
-            "is_active": true
-        }),
-        serde_json::json!({
-            "symbol": "TCS",
-            "name": "Tata Consultancy Services Ltd",
-            "is_active": false
-        }),
-        // More stocks would be added here
-    ];
+    // Get NIFTY 50 stocks
+    let nifty_stocks = state.strategy_service.get_nifty_50_stocks();
+    
+    // Get user's active stock selections
+    let active_selections = match state.strategy_service.get_active_stock_selections(user_id).await {
+        Ok(selections) => selections,
+        Err(_) => Vec::new(), // If error, assume no active selections
+    };
+    
+    // Create a set of active symbols for quick lookup
+    let active_symbols: std::collections::HashSet<String> = active_selections
+        .into_iter()
+        .map(|s| s.symbol)
+        .collect();
+    
+    // Convert to JSON format with active status
+    let stocks: Vec<serde_json::Value> = nifty_stocks
+        .into_iter()
+        .map(|(symbol, name)| {
+            serde_json::json!({
+                "symbol": symbol,
+                "name": name,
+                "is_active": active_symbols.contains(&symbol)
+            })
+        })
+        .collect();
     
     Ok(stocks)
 }
 
+// Strategy management commands
 #[tauri::command]
-async fn get_strategy_params(_state: tauri::State<'_, AppState>) -> Result<serde_json::Value, String> {
-    // In a real implementation, we would:
-    // 1. Retrieve strategy parameters from database
+async fn get_strategies(state: tauri::State<'_, AppState>) -> Result<serde_json::Value, String> {
+    let user_id = "demo_user"; // TODO: Get from auth context
     
-    let strategy = serde_json::json!({
-        "name": "Default Strategy",
-        "max_trades_per_day": 10,
-        "risk_percentage": 1.0,
-        "stop_loss_percentage": 0.5,
-        "take_profit_percentage": 1.5,
-        "volume_threshold": 100000
-    });
-    
-    Ok(strategy)
+    match state.strategy_service.get_strategies(user_id).await {
+        Ok(strategies) => {
+            Ok(serde_json::json!({
+                "success": true,
+                "data": strategies
+            }))
+        }
+        Err(e) => {
+            Ok(serde_json::json!({
+                "success": false,
+                "error": e.to_string()
+            }))
+        }
+    }
 }
 
 #[tauri::command]
-async fn save_strategy_params(
-    _params: serde_json::Value,
-    _state: tauri::State<'_, AppState>
-) -> Result<bool, String> {
-    // In a real implementation, we would:
-    // 1. Validate parameters
-    // 2. Save to database
-    // 3. Update trading engine
+async fn create_strategy(
+    name: String,
+    description: Option<String>,
+    max_trades_per_day: i32,
+    risk_percentage: f64,
+    stop_loss_percentage: f64,
+    take_profit_percentage: f64,
+    volume_threshold: i64,
+    state: tauri::State<'_, AppState>
+) -> Result<serde_json::Value, String> {
+    let user_id = "demo_user"; // TODO: Get from auth context
     
-    Ok(true)
+    let request = services::CreateStrategyRequest {
+        name,
+        description,
+        max_trades_per_day,
+        risk_percentage,
+        stop_loss_percentage,
+        take_profit_percentage,
+        volume_threshold,
+    };
+    
+    match state.strategy_service.create_strategy(user_id, request).await {
+        Ok(strategy) => {
+            Ok(serde_json::json!({
+                "success": true,
+                "data": strategy
+            }))
+        }
+        Err(e) => {
+            Ok(serde_json::json!({
+                "success": false,
+                "error": e.to_string()
+            }))
+        }
+    }
+}
+
+#[tauri::command]
+async fn update_strategy(
+    strategy_id: String,
+    name: Option<String>,
+    description: Option<String>,
+    max_trades_per_day: Option<i32>,
+    risk_percentage: Option<f64>,
+    stop_loss_percentage: Option<f64>,
+    take_profit_percentage: Option<f64>,
+    volume_threshold: Option<i64>,
+    state: tauri::State<'_, AppState>
+) -> Result<serde_json::Value, String> {
+    let user_id = "demo_user"; // TODO: Get from auth context
+    
+    let request = services::UpdateStrategyRequest {
+        name,
+        description,
+        max_trades_per_day,
+        risk_percentage,
+        stop_loss_percentage,
+        take_profit_percentage,
+        volume_threshold,
+    };
+    
+    match state.strategy_service.update_strategy(user_id, &strategy_id, request).await {
+        Ok(strategy) => {
+            Ok(serde_json::json!({
+                "success": true,
+                "data": strategy
+            }))
+        }
+        Err(e) => {
+            Ok(serde_json::json!({
+                "success": false,
+                "error": e.to_string()
+            }))
+        }
+    }
+}
+
+#[tauri::command]
+async fn enable_strategy(
+    strategy_id: String,
+    state: tauri::State<'_, AppState>
+) -> Result<serde_json::Value, String> {
+    let user_id = "demo_user"; // TODO: Get from auth context
+    
+    match state.strategy_service.enable_strategy(user_id, &strategy_id).await {
+        Ok(_) => {
+            Ok(serde_json::json!({
+                "success": true,
+                "message": "Strategy enabled successfully"
+            }))
+        }
+        Err(e) => {
+            Ok(serde_json::json!({
+                "success": false,
+                "error": e.to_string()
+            }))
+        }
+    }
+}
+
+#[tauri::command]
+async fn disable_strategy(
+    strategy_id: String,
+    state: tauri::State<'_, AppState>
+) -> Result<serde_json::Value, String> {
+    let user_id = "demo_user"; // TODO: Get from auth context
+    
+    match state.strategy_service.disable_strategy(user_id, &strategy_id).await {
+        Ok(_) => {
+            Ok(serde_json::json!({
+                "success": true,
+                "message": "Strategy disabled successfully"
+            }))
+        }
+        Err(e) => {
+            Ok(serde_json::json!({
+                "success": false,
+                "error": e.to_string()
+            }))
+        }
+    }
+}
+
+#[tauri::command]
+async fn delete_strategy(
+    strategy_id: String,
+    state: tauri::State<'_, AppState>
+) -> Result<serde_json::Value, String> {
+    let user_id = "demo_user"; // TODO: Get from auth context
+    
+    match state.strategy_service.delete_strategy(user_id, &strategy_id).await {
+        Ok(_) => {
+            Ok(serde_json::json!({
+                "success": true,
+                "message": "Strategy deleted successfully"
+            }))
+        }
+        Err(e) => {
+            Ok(serde_json::json!({
+                "success": false,
+                "error": e.to_string()
+            }))
+        }
+    }
+}
+
+#[tauri::command]
+async fn get_nifty_50_stocks(state: tauri::State<'_, AppState>) -> Result<serde_json::Value, String> {
+    let stocks = state.strategy_service.get_nifty_50_stocks();
+    
+    Ok(serde_json::json!({
+        "success": true,
+        "data": stocks
+    }))
+}
+
+#[tauri::command]
+async fn get_stock_selections(state: tauri::State<'_, AppState>) -> Result<serde_json::Value, String> {
+    let user_id = "demo_user"; // TODO: Get from auth context
+    
+    match state.strategy_service.get_stock_selections(user_id).await {
+        Ok(selections) => {
+            Ok(serde_json::json!({
+                "success": true,
+                "data": selections
+            }))
+        }
+        Err(e) => {
+            Ok(serde_json::json!({
+                "success": false,
+                "error": e.to_string()
+            }))
+        }
+    }
+}
+
+#[tauri::command]
+async fn add_stock_selection(
+    symbol: String,
+    exchange: Option<String>,
+    state: tauri::State<'_, AppState>
+) -> Result<serde_json::Value, String> {
+    let user_id = "demo_user"; // TODO: Get from auth context
+    let exchange = exchange.unwrap_or_else(|| "NSE".to_string());
+    
+    match state.strategy_service.add_stock_selection(user_id, &symbol, &exchange).await {
+        Ok(selection) => {
+            Ok(serde_json::json!({
+                "success": true,
+                "data": selection
+            }))
+        }
+        Err(e) => {
+            Ok(serde_json::json!({
+                "success": false,
+                "error": e.to_string()
+            }))
+        }
+    }
+}
+
+#[tauri::command]
+async fn remove_stock_selection(
+    symbol: String,
+    state: tauri::State<'_, AppState>
+) -> Result<serde_json::Value, String> {
+    let user_id = "demo_user"; // TODO: Get from auth context
+    
+    match state.strategy_service.remove_stock_selection(user_id, &symbol).await {
+        Ok(_) => {
+            Ok(serde_json::json!({
+                "success": true,
+                "message": "Stock selection removed successfully"
+            }))
+        }
+        Err(e) => {
+            Ok(serde_json::json!({
+                "success": false,
+                "error": e.to_string()
+            }))
+        }
+    }
+}
+
+#[tauri::command]
+async fn bulk_add_stock_selections(
+    symbols: Vec<String>,
+    exchange: Option<String>,
+    state: tauri::State<'_, AppState>
+) -> Result<serde_json::Value, String> {
+    let user_id = "demo_user"; // TODO: Get from auth context
+    let exchange = exchange.unwrap_or_else(|| "NSE".to_string());
+    
+    match state.strategy_service.bulk_add_stock_selections(user_id, symbols, &exchange).await {
+        Ok(selections) => {
+            Ok(serde_json::json!({
+                "success": true,
+                "data": selections
+            }))
+        }
+        Err(e) => {
+            Ok(serde_json::json!({
+                "success": false,
+                "error": e.to_string()
+            }))
+        }
+    }
+}
+
+#[tauri::command]
+async fn bulk_remove_stock_selections(
+    symbols: Vec<String>,
+    state: tauri::State<'_, AppState>
+) -> Result<serde_json::Value, String> {
+    let user_id = "demo_user"; // TODO: Get from auth context
+    
+    match state.strategy_service.bulk_remove_stock_selections(user_id, symbols).await {
+        Ok(_) => {
+            Ok(serde_json::json!({
+                "success": true,
+                "message": "Stock selections removed successfully"
+            }))
+        }
+        Err(e) => {
+            Ok(serde_json::json!({
+                "success": false,
+                "error": e.to_string()
+            }))
+        }
+    }
+}
+
+#[tauri::command]
+async fn get_strategy_performance(
+    strategy_id: String,
+    days: Option<i32>,
+    state: tauri::State<'_, AppState>
+) -> Result<serde_json::Value, String> {
+    let user_id = "demo_user"; // TODO: Get from auth context
+    
+    match state.strategy_service.get_strategy_performance(user_id, &strategy_id, days).await {
+        Ok(performance) => {
+            Ok(serde_json::json!({
+                "success": true,
+                "data": performance
+            }))
+        }
+        Err(e) => {
+            Ok(serde_json::json!({
+                "success": false,
+                "error": e.to_string()
+            }))
+        }
+    }
+}
+
+#[tauri::command]
+async fn get_strategy_stats(
+    strategy_id: String,
+    state: tauri::State<'_, AppState>
+) -> Result<serde_json::Value, String> {
+    let user_id = "demo_user"; // TODO: Get from auth context
+    
+    match state.strategy_service.get_strategy_stats(user_id, &strategy_id).await {
+        Ok(stats) => {
+            Ok(serde_json::json!({
+                "success": true,
+                "data": stats
+            }))
+        }
+        Err(e) => {
+            Ok(serde_json::json!({
+                "success": false,
+                "error": e.to_string()
+            }))
+        }
+    }
 }
 
 #[tauri::command]
@@ -349,6 +673,23 @@ pub fn run() {
                 };
                 
                 app_handle_clone.manage(state);
+                
+                // Start HTTP server for API endpoints
+                let http_server_state = api::HttpServerState::new(Arc::clone(&app_service));
+                let http_app = api::create_server(http_server_state);
+                
+                // Start the HTTP server on port 3001
+                tokio::spawn(async move {
+                    let listener = tokio::net::TcpListener::bind("127.0.0.1:3001")
+                        .await
+                        .expect("Failed to bind HTTP server");
+                    
+                    println!("HTTP API server running on http://127.0.0.1:3001");
+                    
+                    if let Err(e) = axum::serve(listener, http_app).await {
+                        eprintln!("HTTP server error: {}", e);
+                    }
+                });
             });
             
             Ok(())
@@ -359,12 +700,25 @@ pub fn run() {
             get_profile,
             save_api_credentials,
             get_stock_list,
-            get_strategy_params,
-            save_strategy_params,
             start_trading,
             stop_trading,
             get_recent_trades,
             get_market_data,
+            // Strategy management commands
+            get_strategies,
+            create_strategy,
+            update_strategy,
+            enable_strategy,
+            disable_strategy,
+            delete_strategy,
+            get_nifty_50_stocks,
+            get_stock_selections,
+            add_stock_selection,
+            remove_stock_selection,
+            bulk_add_stock_selections,
+            bulk_remove_stock_selections,
+            get_strategy_performance,
+            get_strategy_stats,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

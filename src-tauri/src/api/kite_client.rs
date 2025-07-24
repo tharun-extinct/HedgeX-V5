@@ -1,4 +1,4 @@
-use crate::error::{HedgeXError, Result, ResultExt};
+use crate::error::{HedgeXError, Result};
 use crate::models::kite::{
     KiteApiCredentials, KiteOrderRequest, KiteOrderResponse, KitePosition, 
     KiteOrder, KiteHolding, KiteMarginResponse, KiteProfile, KiteQuote,
@@ -257,7 +257,7 @@ impl KiteClient {
                                     }
                                     Err(e) => {
                                         error!("Failed to parse API response: {}", e);
-                                        last_error = Some(HedgeXError::SerializationError(e));
+                                        last_error = Some(HedgeXError::NetworkError(e));
                                     }
                                 }
                             } else {
@@ -281,7 +281,7 @@ impl KiteClient {
                                     }
                                     Err(e) => {
                                         error!("Failed to parse error response: {}", e);
-                                        last_error = Some(HedgeXError::SerializationError(e));
+                                        last_error = Some(HedgeXError::NetworkError(e));
                                     }
                                 }
                             }
@@ -367,10 +367,7 @@ impl KiteClient {
             "InputException" => HedgeXError::ValidationError(error_message.to_string()),
             "OrderException" => HedgeXError::TradingError(error_message.to_string()),
             "DataException" => HedgeXError::DataIntegrityError(error_message.to_string()),
-            "NetworkException" => HedgeXError::NetworkError(reqwest::Error::from(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                error_message,
-            ))),
+            "NetworkException" => HedgeXError::ExternalServiceError(error_message.to_string()),
             "GeneralException" => HedgeXError::ApiError(error_message.to_string()),
             "TooManyRequestsException" => HedgeXError::RateLimitError(error_message.to_string()),
             _ => HedgeXError::ApiError(format!("{}: {}", error_type, error_message)),

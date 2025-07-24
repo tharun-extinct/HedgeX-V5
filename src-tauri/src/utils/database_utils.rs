@@ -8,6 +8,7 @@ use sqlx::migrate::MigrateDatabase;
 use sqlx::sqlite::Sqlite;
 use tokio::fs::{create_dir_all, remove_file};
 use tokio::time::{Duration, sleep};
+use anyhow::Context;
 use std::time::Instant;
 
 /// Enhanced database utilities for connection management and migrations
@@ -197,8 +198,8 @@ impl DatabaseManager {
                 
                 match (a_meta, b_meta) {
                     (Some(a_meta), Some(b_meta)) => {
-                        b_meta.modified().unwrap_or_default()
-                            .cmp(&a_meta.modified().unwrap_or_default())
+                        b_meta.modified().unwrap_or(std::time::UNIX_EPOCH)
+                            .cmp(&a_meta.modified().unwrap_or(std::time::UNIX_EPOCH))
                     },
                     _ => std::cmp::Ordering::Equal,
                 }

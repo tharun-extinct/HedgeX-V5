@@ -1,4 +1,4 @@
-import { useState, useEffect, createContext, useContext } from "react";
+import { useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
@@ -9,24 +9,8 @@ import AnalyticsPage from "./pages/AnalyticsPage";
 import SettingsPage from "./pages/SettingsPage";
 import ProfilePage from "./pages/ProfilePage";
 import DashboardLayout from "./layouts/DashboardLayout";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import "./App.css";
-
-// Create auth context for global state management
-interface AuthContextType {
-  isAuthenticated: boolean;
-  login: (token: string) => void;
-  logout: () => void;
-}
-
-const AuthContext = createContext<AuthContextType | null>(null);
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-  return context;
-};
 
 // This component handles scrolling to top on route changes
 const ScrollToTop = () => {
@@ -39,67 +23,75 @@ const ScrollToTop = () => {
   return null;
 };
 
-function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(
-    !!localStorage.getItem("sessionToken")
-  );
+// Protected route wrapper component
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAuthenticated, isLoading } = useAuth();
 
-  // Function to update auth state when user logs in
-  const login = (token: string) => {
-    localStorage.setItem("sessionToken", token);
-    setIsAuthenticated(true);
-  };
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
-  // Function to update auth state when user logs out
-  const logout = () => {
-    localStorage.removeItem("sessionToken");
-    setIsAuthenticated(false);
-  };
+  return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
+};
 
-  // Listen for changes to the sessionToken in localStorage from other tabs/windows
-  useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === "sessionToken") {
-        setIsAuthenticated(!!e.newValue);
-      }
-    };
+// App routes component (needs to be inside AuthProvider)
+const AppRoutes: React.FC = () => {
+  const { isAuthenticated, isLoading } = useAuth();
 
-    window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
-  }, []);
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, login, logout }}>
+    <Routes>
+      <Route 
+        path="/" 
+        element={isAuthenticated ? <Navigate to="/dashboard" /> : <LoginPage />} 
+      />
+      <Route 
+        path="/login" 
+        element={isAuthenticated ? <Navigate to="/dashboard" /> : <LoginPage />} 
+      />
+      <Route 
+        path="/signup" 
+        element={isAuthenticated ? <Navigate to="/dashboard" /> : <SignupPage />} 
+      />
+      
+      {/* Protected routes using the dashboard layout */}
+      <Route element={
+        <ProtectedRoute>
+          <DashboardLayout />
+        </ProtectedRoute>
+      }>
+        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/strategies" element={<StrategiesPage />} />
+        <Route path="/trades" element={<TradesPage />} />
+        <Route path="/analytics" element={<AnalyticsPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
+      </Route>
+      
+      <Route path="*" element={<Navigate to="/" />} />
+    </Routes>
+  );
+};
+
+function App() {
+  return (
+    <AuthProvider>
       <Router>
         <ScrollToTop />
-        <Routes>
-          <Route 
-            path="/" 
-            element={isAuthenticated ? <Navigate to="/dashboard" /> : <LoginPage />} 
-          />
-          <Route 
-            path="/login" 
-            element={isAuthenticated ? <Navigate to="/dashboard" /> : <LoginPage />} 
-          />
-          <Route 
-            path="/signup" 
-            element={isAuthenticated ? <Navigate to="/dashboard" /> : <SignupPage />} 
-          />
-          
-          {/* Protected routes using the dashboard layout */}
-          <Route element={isAuthenticated ? <DashboardLayout /> : <Navigate to="/login" />}>
-            <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/strategies" element={<StrategiesPage />} />
-            <Route path="/trades" element={<TradesPage />} />
-            <Route path="/analytics" element={<AnalyticsPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-            <Route path="/profile" element={<ProfilePage />} />
-          </Route>
-          
-          <Route path="*" element={<Navigate to="/" />} />
-        </Routes>
+        <AppRoutes />
       </Router>
-    </AuthContext.Provider>
+    </AuthProvider>
   );
 }
 

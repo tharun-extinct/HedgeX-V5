@@ -44,10 +44,15 @@ impl AppService {
         let crypto_service = Arc::new(CryptoService::new());
         
         // Initialize legacy database service for backward compatibility
+        // Create a basic logger for legacy compatibility
+        let legacy_logger = Arc::new(Mutex::new(
+            crate::utils::Logger::new(app_data_dir).await?
+        ));
+        
         let database_service = Arc::new(
             DatabaseService::new(
                 app_data_dir, 
-                enhanced_database_service.get_logger(), 
+                legacy_logger, 
                 Arc::clone(&crypto_service)
             ).await?
         );
@@ -57,7 +62,7 @@ impl AppService {
             enhanced_database_service: Arc::clone(&enhanced_database_service),
             auth_service,
             websocket_manager,
-            logger: enhanced_database_service.get_logger(),
+            logger: legacy_logger.clone(),
             crypto_service,
             app_data_dir: app_data_dir.to_path_buf(),
         };
@@ -97,11 +102,16 @@ impl AppService {
         let crypto_service = Arc::new(CryptoService::new());
         
         // Initialize legacy database service for backward compatibility
+        // Create a basic logger for legacy compatibility
+        let legacy_logger2 = Arc::new(Mutex::new(
+            crate::utils::Logger::new(app_data_dir).await?
+        ));
+        
         let database_service = Arc::new(
             DatabaseService::new_with_config(
                 app_data_dir, 
                 db_config,
-                enhanced_database_service.get_logger(), 
+                legacy_logger2.clone(), 
                 Arc::clone(&crypto_service)
             ).await?
         );
@@ -111,7 +121,7 @@ impl AppService {
             enhanced_database_service: Arc::clone(&enhanced_database_service),
             auth_service,
             websocket_manager,
-            logger: enhanced_database_service.get_logger(),
+            logger: legacy_logger2,
             crypto_service,
             app_data_dir: app_data_dir.to_path_buf(),
         };
