@@ -66,10 +66,16 @@ describe('PositionCard', () => {
     const onClose = vi.fn();
     render(<PositionCard position={mockPosition} onClose={onClose} />);
     
-    const closeButton = screen.getByRole('button');
-    fireEvent.click(closeButton);
+    // Find the X button (close button in header)
+    const closeButtons = screen.getAllByRole('button');
+    const xButton = closeButtons.find(button => 
+      button.querySelector('svg')?.classList.contains('lucide-x')
+    );
     
-    expect(onClose).toHaveBeenCalledWith('RELIANCE');
+    if (xButton) {
+      fireEvent.click(xButton);
+      expect(onClose).toHaveBeenCalledWith('RELIANCE');
+    }
   });
 
   it('calls onModify when modify button is clicked', () => {

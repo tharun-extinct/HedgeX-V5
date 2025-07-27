@@ -74,8 +74,8 @@ describe('OrderBook', () => {
     expect(screen.getByText('TCS')).toBeInTheDocument();
     expect(screen.getByText('HDFC')).toBeInTheDocument();
     
-    expect(screen.getByText('Buy')).toBeInTheDocument();
-    expect(screen.getByText('Sell')).toBeInTheDocument();
+    expect(screen.getAllByText('Buy')).toHaveLength(1);
+    expect(screen.getAllByText('Sell')).toHaveLength(1);
     
     expect(screen.getByText('Limit')).toBeInTheDocument();
     expect(screen.getByText('Market')).toBeInTheDocument();
@@ -131,7 +131,8 @@ describe('OrderBook', () => {
     const onRefresh = vi.fn();
     render(<OrderBook orders={mockOrders} onRefresh={onRefresh} />);
     
-    const refreshButton = screen.getByRole('button', { name: /refresh/i });
+    // Find the refresh button by its SVG icon
+    const refreshButton = screen.getByRole('button', { name: '' });
     fireEvent.click(refreshButton);
     
     expect(onRefresh).toHaveBeenCalled();
@@ -140,7 +141,8 @@ describe('OrderBook', () => {
   it('shows loading state correctly', () => {
     render(<OrderBook orders={mockOrders} isLoading={true} />);
     
-    const refreshButton = screen.getByRole('button', { name: /refresh/i });
+    // Find the refresh button by its SVG icon and check if disabled
+    const refreshButton = screen.getByRole('button', { name: '' });
     expect(refreshButton).toBeDisabled();
   });
 

@@ -5,6 +5,7 @@ import { DashboardCard } from '../components/ui/dashboard-card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { useAuth } from '../contexts/AuthContext';
+import { cn } from '../lib/utils';
 import { 
   TrendingUp, TrendingDown, Activity, DollarSign, Target, ArrowUpRight, 
   ArrowDownRight, BarChart2, RefreshCw, AlertCircle, Play, Square, Pause
@@ -52,8 +53,9 @@ const DashboardPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [wsConnected, setWsConnected] = useState<boolean>(false);
 
-  // Mock data for development
+  // Mock NIFTY 50 data for development - expanded list
   const mockMarketData: MarketDataItem[] = [
     { 
       symbol: 'NIFTY 50', 
@@ -92,15 +94,15 @@ const DashboardPage: React.FC = () => {
       timestamp: new Date().toISOString()
     },
     { 
-      symbol: 'HDFC', 
+      symbol: 'HDFCBANK', 
       instrument_token: 341249,
-      ltp: 2245.75, 
+      ltp: 1645.75, 
       change: 28.90, 
-      change_percent: 1.30, 
+      change_percent: 1.79, 
       volume: 1100000, 
-      bid: 2245.50,
-      ask: 2245.75,
-      ohlc: { open: 2216.85, high: 2250.20, low: 2210.50, close: 2216.85 },
+      bid: 1645.50,
+      ask: 1645.75,
+      ohlc: { open: 1616.85, high: 1650.20, low: 1610.50, close: 1616.85 },
       timestamp: new Date().toISOString()
     },
     { 
@@ -113,6 +115,90 @@ const DashboardPage: React.FC = () => {
       bid: 1623.75,
       ask: 1624.00,
       ohlc: { open: 1632.25, high: 1638.75, low: 1620.10, close: 1632.25 },
+      timestamp: new Date().toISOString()
+    },
+    { 
+      symbol: 'ICICIBANK', 
+      instrument_token: 1270529,
+      ltp: 1142.30, 
+      change: 12.45, 
+      change_percent: 1.10, 
+      volume: 980000, 
+      bid: 1142.00,
+      ask: 1142.30,
+      ohlc: { open: 1129.85, high: 1145.60, low: 1125.40, close: 1129.85 },
+      timestamp: new Date().toISOString()
+    },
+    { 
+      symbol: 'HINDUNILVR', 
+      instrument_token: 356865,
+      ltp: 2385.20, 
+      change: -15.80, 
+      change_percent: -0.66, 
+      volume: 420000, 
+      bid: 2385.00,
+      ask: 2385.20,
+      ohlc: { open: 2401.00, high: 2405.75, low: 2380.10, close: 2401.00 },
+      timestamp: new Date().toISOString()
+    },
+    { 
+      symbol: 'ITC', 
+      instrument_token: 424961,
+      ltp: 456.75, 
+      change: 3.25, 
+      change_percent: 0.72, 
+      volume: 1850000, 
+      bid: 456.50,
+      ask: 456.75,
+      ohlc: { open: 453.50, high: 458.20, low: 452.80, close: 453.50 },
+      timestamp: new Date().toISOString()
+    },
+    { 
+      symbol: 'SBIN', 
+      instrument_token: 779521,
+      ltp: 825.40, 
+      change: 18.90, 
+      change_percent: 2.34, 
+      volume: 2100000, 
+      bid: 825.20,
+      ask: 825.40,
+      ohlc: { open: 806.50, high: 828.75, low: 804.20, close: 806.50 },
+      timestamp: new Date().toISOString()
+    },
+    { 
+      symbol: 'BHARTIARTL', 
+      instrument_token: 2714625,
+      ltp: 1598.25, 
+      change: -22.15, 
+      change_percent: -1.37, 
+      volume: 1320000, 
+      bid: 1598.00,
+      ask: 1598.25,
+      ohlc: { open: 1620.40, high: 1625.80, low: 1595.30, close: 1620.40 },
+      timestamp: new Date().toISOString()
+    },
+    { 
+      symbol: 'KOTAKBANK', 
+      instrument_token: 492033,
+      ltp: 1734.60, 
+      change: 8.35, 
+      change_percent: 0.48, 
+      volume: 680000, 
+      bid: 1734.40,
+      ask: 1734.60,
+      ohlc: { open: 1726.25, high: 1738.90, low: 1722.15, close: 1726.25 },
+      timestamp: new Date().toISOString()
+    },
+    { 
+      symbol: 'LT', 
+      instrument_token: 2939649,
+      ltp: 3485.75, 
+      change: -45.20, 
+      change_percent: -1.28, 
+      volume: 540000, 
+      bid: 3485.50,
+      ask: 3485.75,
+      ohlc: { open: 3530.95, high: 3535.40, low: 3480.60, close: 3530.95 },
       timestamp: new Date().toISOString()
     }
   ];
@@ -235,21 +321,68 @@ const DashboardPage: React.FC = () => {
     }
   }, [isAuthenticated, user]);
 
-  // Real-time data updates
+  // Real-time data updates with WebSocket simulation
   useEffect(() => {
     if (!isAuthenticated) return;
 
     fetchDashboardData();
     
-    // Set up real-time updates every 5 seconds
+    // Set up real-time updates every 1 second for more responsive updates
     const intervalId = setInterval(() => {
       if (tradingStatus.connection_status === 'connected') {
-        fetchDashboardData();
+        // Simulate real-time price updates with more realistic movements
+        setMarketData(prevData => 
+          prevData.map(item => {
+            const priceChange = (Math.random() - 0.5) * (item.ltp * 0.002); // 0.2% max change
+            const newLtp = Math.max(0.01, item.ltp + priceChange);
+            const newChange = newLtp - item.ohlc!.close;
+            const newChangePercent = (newChange / item.ohlc!.close) * 100;
+            const volumeIncrease = Math.floor(Math.random() * 5000);
+            
+            return {
+              ...item,
+              ltp: newLtp,
+              change: newChange,
+              change_percent: newChangePercent,
+              volume: item.volume + volumeIncrease,
+              bid: newLtp - 0.05,
+              ask: newLtp + 0.05,
+              timestamp: new Date().toISOString()
+            };
+          })
+        );
       }
-    }, 5000);
+    }, 1000); // Update every 1 second for real-time feel
 
     return () => clearInterval(intervalId);
   }, [isAuthenticated, fetchDashboardData, tradingStatus.connection_status]);
+
+  // Separate effect for position updates based on market data
+  useEffect(() => {
+    if (tradingStatus.connection_status === 'connected' && marketData.length > 0) {
+      setPositions(prevPositions =>
+        prevPositions.map(position => {
+          const marketItem = marketData.find(item => item.symbol === position.symbol);
+          if (marketItem) {
+            const currentPrice = marketItem.ltp;
+            const pnl = position.trade_type === 'Buy' 
+              ? (currentPrice - position.average_price) * position.quantity
+              : (position.average_price - currentPrice) * Math.abs(position.quantity);
+            const pnlPercentage = (pnl / (position.average_price * Math.abs(position.quantity))) * 100;
+            
+            return {
+              ...position,
+              current_price: currentPrice,
+              pnl,
+              pnl_percentage: pnlPercentage,
+              last_updated: new Date().toISOString()
+            };
+          }
+          return position;
+        })
+      );
+    }
+  }, [marketData, tradingStatus.connection_status]);
 
   // Trading action handlers
   const handleQuickTrade = async (symbol: string, action: 'BUY' | 'SELL') => {
@@ -300,6 +433,9 @@ const DashboardPage: React.FC = () => {
     try {
       console.log('Reconnecting to market data');
       setTradingStatus(prev => ({ ...prev, connection_status: 'connecting' }));
+      setWsConnected(false);
+      
+      // Simulate WebSocket reconnection
       // await invoke('reconnect_websocket');
       setTimeout(() => {
         setTradingStatus(prev => ({ 
@@ -307,10 +443,15 @@ const DashboardPage: React.FC = () => {
           connection_status: 'connected',
           last_connected: new Date().toISOString()
         }));
+        setWsConnected(true);
+        
+        // Simulate successful reconnection with fresh data
+        fetchDashboardData();
       }, 2000);
     } catch (err) {
       console.error('Reconnection failed:', err);
       setTradingStatus(prev => ({ ...prev, connection_status: 'failed' }));
+      setWsConnected(false);
     }
   };
 
@@ -319,6 +460,7 @@ const DashboardPage: React.FC = () => {
       console.log('Disconnecting from market data');
       // await invoke('disconnect_websocket');
       setTradingStatus(prev => ({ ...prev, connection_status: 'disconnected' }));
+      setWsConnected(false);
     } catch (err) {
       console.error('Disconnection failed:', err);
     }
@@ -499,7 +641,10 @@ const DashboardPage: React.FC = () => {
           value={`${totalPnL >= 0 ? '+' : ''}₹${totalPnL.toFixed(2)}`}
           change={totalPnLPercent}
           icon={totalPnL >= 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-          className={totalPnL >= 0 ? "border-green-200" : "border-red-200"}
+          className={cn(
+            "transition-all duration-300",
+            totalPnL >= 0 ? "border-green-200 bg-green-50/30" : "border-red-200 bg-red-50/30"
+          )}
         />
         
         <DashboardCard
@@ -507,13 +652,22 @@ const DashboardPage: React.FC = () => {
           value={positions.length.toString()}
           description={`${tradingStatus.total_trades_today} trades today`}
           icon={<Target className="w-4 h-4" />}
+          className={positions.length > 0 ? "border-blue-200 bg-blue-50/30" : ""}
         />
         
         <DashboardCard
           title="Active Strategies"
           value={tradingStatus.active_strategies.toString()}
-          description="Running algorithms"
+          description={
+            <div className="flex items-center space-x-1">
+              <span>Running algorithms</span>
+              {tradingStatus.is_trading && (
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+              )}
+            </div>
+          }
           icon={<Activity className="w-4 h-4" />}
+          className={tradingStatus.is_trading ? "border-green-200 bg-green-50/30" : ""}
         />
       </div>
 
@@ -537,10 +691,18 @@ const DashboardPage: React.FC = () => {
           <Card className="shadow-sm">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg font-semibold">Open Positions</CardTitle>
-                <Badge variant="outline" className="text-xs">
-                  {positions.length} positions
-                </Badge>
+                <div className="flex items-center space-x-2">
+                  <CardTitle className="text-lg font-semibold">Open Positions</CardTitle>
+                  <Badge variant="outline" className="text-xs">
+                    {positions.length} positions
+                  </Badge>
+                </div>
+                {tradingStatus.connection_status === 'connected' && (
+                  <div className="flex items-center space-x-1">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                    <span className="text-xs text-green-600">Live</span>
+                  </div>
+                )}
               </div>
             </CardHeader>
             <CardContent className="space-y-3 max-h-[250px] overflow-y-auto">
