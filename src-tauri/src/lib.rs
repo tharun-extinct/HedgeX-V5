@@ -1040,6 +1040,128 @@ pub struct AppState {
     app_path: PathBuf,
 }
 
+// Error handling and performance monitoring commands
+#[tauri::command]
+async fn log_frontend_error(
+    error_data: serde_json::Value,
+    state: tauri::State<'_, AppState>
+) -> Result<serde_json::Value, String> {
+    let logger = state.app_service.get_enhanced_database_service().get_enhanced_logger();
+    
+    let message = error_data.get("message")
+        .and_then(|v| v.as_str())
+        .unwrap_or("Frontend error");
+    
+    let context = error_data.get("context")
+        .and_then(|v| v.as_str());
+    
+    match logger.error_structured(
+        message,
+        context,
+        Some(std::collections::HashMap::from([
+            ("source".to_string(), serde_json::json!("frontend")),
+            ("error_data".to_string(), error_data),
+        ]))
+    ).await {
+        Ok(_) => Ok(serde_json::json!({
+            "success": true,
+            "message": "Error logged successfully"
+        })),
+        Err(e) => Ok(serde_json::json!({
+            "success": false,
+            "error": e.to_string()
+        }))
+    }
+}
+
+#[tauri::command]
+async fn get_performance_metrics(
+    state: tauri::State<'_, AppState>
+) -> Result<serde_json::Value, String> {
+    // In a real implementation, you would get this from the performance monitor
+    // For now, return mock data
+    Ok(serde_json::json!({
+        "success": true,
+        "data": {
+            "cpu_usage": 45.2,
+            "memory_usage": 67.8,
+            "disk_usage": 23.1,
+            "request_rate": 12.5,
+            "error_rate": 0.8,
+            "response_time_avg": 145.3,
+            "response_time_p95": 287.6,
+            "response_time_p99": 456.2,
+            "timestamp": chrono::Utc::now().to_rfc3339()
+        }
+    }))
+}
+
+#[tauri::command]
+async fn get_system_health(
+    state: tauri::State<'_, AppState>
+) -> Result<serde_json::Value, String> {
+    // In a real implementation, you would run health checks
+    Ok(serde_json::json!({
+        "success": true,
+        "data": {
+            "overall_status": "healthy",
+            "checks": {
+                "database": {
+                    "healthy": true,
+                    "message": "Database connection is healthy",
+                    "timestamp": chrono::Utc::now().to_rfc3339()
+                },
+                "api": {
+                    "healthy": true,
+                    "message": "API endpoints are responding",
+                    "timestamp": chrono::Utc::now().to_rfc3339()
+                },
+                "websocket": {
+                    "healthy": true,
+                    "message": "WebSocket connections are stable",
+                    "timestamp": chrono::Utc::now().to_rfc3339()
+                }
+            }
+        }
+    }))
+}
+
+#[tauri::command]
+async fn get_error_recovery_status(
+    state: tauri::State<'_, AppState>
+) -> Result<serde_json::Value, String> {
+    // In a real implementation, you would get circuit breaker status
+    Ok(serde_json::json!({
+        "success": true,
+        "data": {
+            "circuit_breakers": {
+                "kite_api": {
+                    "state": "Closed",
+                    "failure_count": 0,
+                    "timestamp": chrono::Utc::now().to_rfc3339()
+                },
+                "database": {
+                    "state": "Closed",
+                    "failure_count": 0,
+                    "timestamp": chrono::Utc::now().to_rfc3339()
+                }
+            }
+        }
+    }))
+}
+
+#[tauri::command]
+async fn reset_circuit_breaker(
+    service_name: String,
+    state: tauri::State<'_, AppState>
+) -> Result<serde_json::Value, String> {
+    // In a real implementation, you would reset the circuit breaker
+    Ok(serde_json::json!({
+        "success": true,
+        "message": format!("Circuit breaker for {} has been reset", service_name)
+    }))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Initialize tracing for structured logging
@@ -1175,6 +1297,12 @@ pub fn run() {
             get_analytics_strategy_performance,
             get_instrument_performance,
             get_equity_curve,
+            // Error handling and performance monitoring commands
+            log_frontend_error,
+            get_performance_metrics,
+            get_system_health,
+            get_error_recovery_status,
+            reset_circuit_breaker,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -10,6 +10,8 @@ import SettingsPage from "./pages/SettingsPage";
 import ProfilePage from "./pages/ProfilePage";
 import DashboardLayout from "./layouts/DashboardLayout";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { ErrorProvider } from "./contexts/ErrorContext";
+import { ErrorBoundary } from "./components/common/ErrorBoundary";
 import "./App.css";
 
 // This component handles scrolling to top on route changes
@@ -86,12 +88,16 @@ const AppRoutes: React.FC = () => {
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <ScrollToTop />
-        <AppRoutes />
-      </Router>
-    </AuthProvider>
+    <ErrorBoundary>
+      <ErrorProvider>
+        <AuthProvider>
+          <Router>
+            <ScrollToTop />
+            <AppRoutes />
+          </Router>
+        </AuthProvider>
+      </ErrorProvider>
+    </ErrorBoundary>
   );
 }
 

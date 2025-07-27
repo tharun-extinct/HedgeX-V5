@@ -472,7 +472,7 @@ impl EnhancedLogger {
         Ok(deleted_count)
     }
     
-    /// Archive logs to a file
+    /// Archive logs to a file with compression
     pub async fn archive_logs(&self, from_date: DateTime<Utc>, to_date: DateTime<Utc>) -> Result<PathBuf> {
         let db = self.db.lock().await;
         let pool = db.get_pool();
@@ -493,7 +493,7 @@ impl EnhancedLogger {
         
         // Create archive file
         let archive_filename = format!(
-            "logs_archive_{}_to_{}.json",
+            "logs_archive_{}_to_{}.json.gz",
             from_date.format("%Y%m%d"),
             to_date.format("%Y%m%d")
         );
@@ -503,25 +503,104 @@ impl EnhancedLogger {
         let logs_json = serde_json::to_string_pretty(&logs)
             .with_context(|| "Failed to serialize logs to JSON")?;
             
-        // Write to file
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(&archive_path)
+        // Write compressed file
+        use std::io::Write;
+        use flate2::write::GzEncoder;
+        use flate2::Compression;
+        
+        let file = File::create(&archive_path)
             .with_context(|| format!("Failed to create archive file: {:?}", archive_path))?;
             
-        file.write_all(logs_json.as_bytes())
-            .with_context(|| format!("Failed to write logs to archive file: {:?}", archive_path))?;
+        let mut encoder = GzEncoder::new(file, Compression::default());
+        encoder.write_all(logs_json.as_bytes())
+            .with_context(|| format!("Failed to write compressed logs to archive file: {:?}", archive_path))?;
+        encoder.finish()
+            .with_context(|| format!("Failed to finish compression for archive file: {:?}", archive_path))?;
             
         info!(
             archive_path = %archive_path.display(),
             log_count = logs.len(),
             from_date = %from_date,
             to_date = %to_date,
-            "Archived logs to file"
+            "Archived and compressed logs to file"
         );
         
         Ok(archive_path)
+    }
+    
+    /// Schedule automatic log archiving and cleanup
+    pub async fn start_log_maintenance(&self, archive_after_days: i32, delete_after_days: i32) -> Result<()> {
+        let db = self.db.clone();
+        let log_dir = self.log_dir.clone();
+        let logger = Arc::new(EnhancedLogger::new(db.clone(), None, &log_dir.parent().unwrap()).await?);
+        
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(Duration::from_secs(24 * 60 * 60)); // Daily
+            
+            loop {
+                interval.tick().await;
+                
+                let now = Utc::now();
+                let archive_cutoff = now - chrono::Duration::days(archive_after_days as i64);
+                let delete_cutoff = now - chrono::Duration::days(delete_after_days as i64);
+                
+                // Archive old logs
+                if let Err(e) = logger.archive_logs(delete_cutoff, archive_cutoff).await {
+                    error!("Failed to archive logs: {}", e);
+                }
+                
+                // Clean up very old logs
+                if let Err(e) = logger.cleanup_old_logs(delete_after_days).await {
+                    error!("Failed to cleanup old logs: {}", e);
+                }
+                
+                // Clean up old archive files (keep for 1 year)
+                if let Err(e) = Self::cleanup_old_archives(&log_dir, 365).await {
+                    error!("Failed to cleanup old archives: {}", e);
+                }
+            }
+        });
+        
+        info!("Log maintenance scheduled: archive after {} days, delete after {} days", 
+              archive_after_days, delete_after_days);
+        Ok(())
+    }
+    
+    /// Clean up old archive files
+    async fn cleanup_old_archives(log_dir: &PathBuf, days_to_keep: i32) -> Result<()> {
+        let cutoff = Utc::now() - chrono::Duration::days(days_to_keep as i64);
+        let mut deleted_count = 0;
+        
+        let mut entries = tokio::fs::read_dir(log_dir).await
+            .with_context(|| format!("Failed to read log directory: {:?}", log_dir))?;
+            
+        while let Some(entry) = entries.next_entry().await
+            .with_context(|| "Failed to read directory entry")? {
+            
+            let path = entry.path();
+            if let Some(filename) = path.file_name().and_then(|n| n.to_str()) {
+                if filename.starts_with("logs_archive_") && filename.ends_with(".json.gz") {
+                    if let Ok(metadata) = entry.metadata().await {
+                        if let Ok(modified) = metadata.modified() {
+                            let modified_datetime = DateTime::<Utc>::from(modified);
+                            if modified_datetime < cutoff {
+                                if let Err(e) = tokio::fs::remove_file(&path).await {
+                                    warn!("Failed to delete old archive file {:?}: {}", path, e);
+                                } else {
+                                    deleted_count += 1;
+                                    debug!("Deleted old archive file: {:?}", path);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        if deleted_count > 0 {
+            info!("Cleaned up {} old archive files", deleted_count);
+        }
+        
+        Ok(())
     }
 }
