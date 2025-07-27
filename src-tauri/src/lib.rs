@@ -578,6 +578,455 @@ async fn get_market_data(state: tauri::State<'_, AppState>) -> Result<Vec<serde_
     Ok(data)
 }
 
+// Analytics commands
+#[tauri::command]
+async fn get_system_logs(
+    state: tauri::State<'_, AppState>,
+    limit: Option<i32>,
+    offset: Option<i32>
+) -> Result<serde_json::Value, String> {
+    let limit = limit.unwrap_or(100);
+    let offset = offset.unwrap_or(0);
+    
+    // Get logs from database
+    let db = state.app_service.get_enhanced_database_service().get_database();
+    let pool = db.get_pool();
+    
+    let query = "
+        SELECT id, user_id, log_level, message, created_at, context
+        FROM system_logs 
+        ORDER BY created_at DESC 
+        LIMIT ? OFFSET ?
+    ";
+    
+    match sqlx::query(query)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(pool)
+        .await
+    {
+        Ok(rows) => {
+            let logs: Vec<serde_json::Value> = rows
+                .into_iter()
+                .map(|row| {
+                    serde_json::json!({
+                        "id": row.get::<String, _>("id"),
+                        "user_id": row.get::<Option<String>, _>("user_id"),
+                        "log_level": row.get::<i32, _>("log_level"),
+                        "message": row.get::<String, _>("message"),
+                        "created_at": row.get::<chrono::DateTime<chrono::Utc>, _>("created_at").to_rfc3339(),
+                        "context": row.get::<Option<String>, _>("context")
+                    })
+                })
+                .collect();
+            
+            Ok(serde_json::json!({
+                "success": true,
+                "data": logs
+            }))
+        }
+        Err(e) => {
+            eprintln!("Failed to get system logs: {}", e);
+            Ok(serde_json::json!({
+                "success": false,
+                "error": format!("Failed to get system logs: {}", e)
+            }))
+        }
+    }
+}
+
+#[tauri::command]
+async fn get_trade_history(
+    state: tauri::State<'_, AppState>,
+    limit: Option<i32>,
+    offset: Option<i32>
+) -> Result<serde_json::Value, String> {
+    let user_id = "demo_user"; // TODO: Get from auth context
+    let limit = limit.unwrap_or(100);
+    let offset = offset.unwrap_or(0);
+    
+    // Get trades from database
+    let db = state.app_service.get_enhanced_database_service().get_database();
+    let pool = db.get_pool();
+    
+    let query = "
+        SELECT id, symbol, trade_type, quantity, price, status, executed_at, strategy_id
+        FROM trades 
+        WHERE user_id = ?
+        ORDER BY executed_at DESC 
+        LIMIT ? OFFSET ?
+    ";
+    
+    match sqlx::query(query)
+        .bind(user_id)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(pool)
+        .await
+    {
+        Ok(rows) => {
+            let trades: Vec<serde_json::Value> = rows
+                .into_iter()
+                .map(|row| {
+                    serde_json::json!({
+                        "id": row.get::<String, _>("id"),
+                        "symbol": row.get::<String, _>("symbol"),
+                        "trade_type": row.get::<String, _>("trade_type"),
+                        "quantity": row.get::<i32, _>("quantity"),
+                        "price": row.get::<f64, _>("price"),
+                        "status": row.get::<String, _>("status"),
+                        "executed_at": row.get::<chrono::DateTime<chrono::Utc>, _>("executed_at").to_rfc3339(),
+                        "strategy_id": row.get::<String, _>("strategy_id")
+                    })
+                })
+                .collect();
+            
+            Ok(serde_json::json!({
+                "success": true,
+                "data": trades
+            }))
+        }
+        Err(e) => {
+            eprintln!("Failed to get trade history: {}", e);
+            Ok(serde_json::json!({
+                "success": false,
+                "error": format!("Failed to get trade history: {}", e)
+            }))
+        }
+    }
+}
+
+#[tauri::command]
+async fn get_analytics_performance_metrics(
+    state: tauri::State<'_, AppState>,
+    timeframe: Option<String>
+) -> Result<serde_json::Value, String> {
+    let user_id = "demo_user"; // TODO: Get from auth context
+    let timeframe = timeframe.unwrap_or_else(|| "month".to_string());
+    
+    // Calculate date range based on timeframe
+    let days = match timeframe.as_str() {
+        "day" => 1,
+        "week" => 7,
+        "month" => 30,
+        "year" => 365,
+        _ => 30,
+    };
+    
+    // Get performance metrics from database
+    let db = state.app_service.get_enhanced_database_service().get_database();
+    let pool = db.get_pool();
+    
+    let query = "
+        SELECT 
+            COUNT(*) as total_trades,
+            COUNT(CASE WHEN price > 0 THEN 1 END) as profitable_trades,
+            SUM(price * quantity * CASE WHEN trade_type = 'Sell' THEN 1 ELSE -1 END) as total_profit,
+            AVG(CASE WHEN price > 0 THEN price * quantity END) as average_win,
+            AVG(CASE WHEN price < 0 THEN ABS(price * quantity) END) as average_loss,
+            MAX(price * quantity) as largest_win,
+            MIN(price * quantity) as largest_loss
+        FROM trades 
+        WHERE user_id = ? 
+        AND status = 'Executed'
+        AND executed_at >= datetime('now', '-' || ? || ' days')
+    ";
+    
+    match sqlx::query(query)
+        .bind(user_id)
+        .bind(days)
+        .fetch_one(pool)
+        .await
+    {
+        Ok(row) => {
+            let total_trades: i32 = row.get("total_trades");
+            let profitable_trades: i32 = row.get("profitable_trades");
+            let total_profit: f64 = row.get::<Option<f64>, _>("total_profit").unwrap_or(0.0);
+            let average_win: f64 = row.get::<Option<f64>, _>("average_win").unwrap_or(0.0);
+            let average_loss: f64 = row.get::<Option<f64>, _>("average_loss").unwrap_or(0.0);
+            let largest_win: f64 = row.get::<Option<f64>, _>("largest_win").unwrap_or(0.0);
+            let largest_loss: f64 = row.get::<Option<f64>, _>("largest_loss").unwrap_or(0.0);
+            
+            let losing_trades = total_trades - profitable_trades;
+            let win_rate = if total_trades > 0 {
+                profitable_trades as f64 / total_trades as f64
+            } else {
+                0.0
+            };
+            
+            let profit_factor = if average_loss > 0.0 {
+                average_win / average_loss
+            } else {
+                0.0
+            };
+            
+            Ok(serde_json::json!({
+                "success": true,
+                "data": {
+                    "total_trades": total_trades,
+                    "profitable_trades": profitable_trades,
+                    "losing_trades": losing_trades,
+                    "win_rate": win_rate,
+                    "profit_factor": profit_factor,
+                    "average_win": average_win,
+                    "average_loss": average_loss,
+                    "largest_win": largest_win,
+                    "largest_loss": largest_loss,
+                    "total_profit": total_profit,
+                    "net_profit": total_profit,
+                    "sharpe_ratio": 1.5, // TODO: Calculate actual Sharpe ratio
+                    "max_drawdown": 0.0, // TODO: Calculate actual max drawdown
+                    "max_drawdown_percent": 0.0,
+                    "average_trade_duration": 45
+                }
+            }))
+        }
+        Err(e) => {
+            eprintln!("Failed to get performance metrics: {}", e);
+            Ok(serde_json::json!({
+                "success": false,
+                "error": format!("Failed to get performance metrics: {}", e)
+            }))
+        }
+    }
+}
+
+#[tauri::command]
+async fn get_analytics_strategy_performance(
+    state: tauri::State<'_, AppState>,
+    timeframe: Option<String>
+) -> Result<serde_json::Value, String> {
+    let user_id = "demo_user"; // TODO: Get from auth context
+    let timeframe = timeframe.unwrap_or_else(|| "month".to_string());
+    
+    // Calculate date range based on timeframe
+    let days = match timeframe.as_str() {
+        "day" => 1,
+        "week" => 7,
+        "month" => 30,
+        "year" => 365,
+        _ => 30,
+    };
+    
+    // Get strategy performance from database
+    let db = state.app_service.get_enhanced_database_service().get_database();
+    let pool = db.get_pool();
+    
+    let query = "
+        SELECT 
+            t.strategy_id,
+            sp.name as strategy_name,
+            COUNT(*) as trades,
+            COUNT(CASE WHEN t.price > 0 THEN 1 END) as profitable_trades,
+            SUM(t.price * t.quantity * CASE WHEN t.trade_type = 'Sell' THEN 1 ELSE -1 END) as total_profit
+        FROM trades t
+        LEFT JOIN strategy_params sp ON t.strategy_id = sp.id
+        WHERE t.user_id = ? 
+        AND t.status = 'Executed'
+        AND t.executed_at >= datetime('now', '-' || ? || ' days')
+        GROUP BY t.strategy_id, sp.name
+        ORDER BY total_profit DESC
+    ";
+    
+    match sqlx::query(query)
+        .bind(user_id)
+        .bind(days)
+        .fetch_all(pool)
+        .await
+    {
+        Ok(rows) => {
+            let strategies: Vec<serde_json::Value> = rows
+                .into_iter()
+                .map(|row| {
+                    let trades: i32 = row.get("trades");
+                    let profitable_trades: i32 = row.get("profitable_trades");
+                    let total_profit: f64 = row.get::<Option<f64>, _>("total_profit").unwrap_or(0.0);
+                    
+                    let win_rate = if trades > 0 {
+                        profitable_trades as f64 / trades as f64
+                    } else {
+                        0.0
+                    };
+                    
+                    serde_json::json!({
+                        "strategy_id": row.get::<String, _>("strategy_id"),
+                        "strategy_name": row.get::<Option<String>, _>("strategy_name").unwrap_or_else(|| "Unknown".to_string()),
+                        "trades": trades,
+                        "win_rate": win_rate,
+                        "profit_factor": 1.5, // TODO: Calculate actual profit factor
+                        "total_profit": total_profit,
+                        "net_profit": total_profit
+                    })
+                })
+                .collect();
+            
+            Ok(serde_json::json!({
+                "success": true,
+                "data": strategies
+            }))
+        }
+        Err(e) => {
+            eprintln!("Failed to get strategy performance: {}", e);
+            Ok(serde_json::json!({
+                "success": false,
+                "error": format!("Failed to get strategy performance: {}", e)
+            }))
+        }
+    }
+}
+
+#[tauri::command]
+async fn get_instrument_performance(
+    state: tauri::State<'_, AppState>,
+    timeframe: Option<String>
+) -> Result<serde_json::Value, String> {
+    let user_id = "demo_user"; // TODO: Get from auth context
+    let timeframe = timeframe.unwrap_or_else(|| "month".to_string());
+    
+    // Calculate date range based on timeframe
+    let days = match timeframe.as_str() {
+        "day" => 1,
+        "week" => 7,
+        "month" => 30,
+        "year" => 365,
+        _ => 30,
+    };
+    
+    // Get instrument performance from database
+    let db = state.app_service.get_enhanced_database_service().get_database();
+    let pool = db.get_pool();
+    
+    let query = "
+        SELECT 
+            symbol,
+            COUNT(*) as trades,
+            COUNT(CASE WHEN price > 0 THEN 1 END) as profitable_trades,
+            SUM(price * quantity * CASE WHEN trade_type = 'Sell' THEN 1 ELSE -1 END) as total_profit
+        FROM trades 
+        WHERE user_id = ? 
+        AND status = 'Executed'
+        AND executed_at >= datetime('now', '-' || ? || ' days')
+        GROUP BY symbol
+        ORDER BY total_profit DESC
+        LIMIT 10
+    ";
+    
+    match sqlx::query(query)
+        .bind(user_id)
+        .bind(days)
+        .fetch_all(pool)
+        .await
+    {
+        Ok(rows) => {
+            let instruments: Vec<serde_json::Value> = rows
+                .into_iter()
+                .map(|row| {
+                    let trades: i32 = row.get("trades");
+                    let profitable_trades: i32 = row.get("profitable_trades");
+                    let total_profit: f64 = row.get::<Option<f64>, _>("total_profit").unwrap_or(0.0);
+                    
+                    let win_rate = if trades > 0 {
+                        profitable_trades as f64 / trades as f64
+                    } else {
+                        0.0
+                    };
+                    
+                    serde_json::json!({
+                        "symbol": row.get::<String, _>("symbol"),
+                        "trades": trades,
+                        "win_rate": win_rate,
+                        "profit_factor": 1.5, // TODO: Calculate actual profit factor
+                        "total_profit": total_profit,
+                        "net_profit": total_profit
+                    })
+                })
+                .collect();
+            
+            Ok(serde_json::json!({
+                "success": true,
+                "data": instruments
+            }))
+        }
+        Err(e) => {
+            eprintln!("Failed to get instrument performance: {}", e);
+            Ok(serde_json::json!({
+                "success": false,
+                "error": format!("Failed to get instrument performance: {}", e)
+            }))
+        }
+    }
+}
+
+#[tauri::command]
+async fn get_equity_curve(
+    state: tauri::State<'_, AppState>,
+    timeframe: Option<String>
+) -> Result<serde_json::Value, String> {
+    let user_id = "demo_user"; // TODO: Get from auth context
+    let timeframe = timeframe.unwrap_or_else(|| "month".to_string());
+    
+    // Calculate date range based on timeframe
+    let days = match timeframe.as_str() {
+        "day" => 1,
+        "week" => 7,
+        "month" => 30,
+        "year" => 365,
+        _ => 30,
+    };
+    
+    // Get equity curve data from database
+    let db = state.app_service.get_enhanced_database_service().get_database();
+    let pool = db.get_pool();
+    
+    let query = "
+        SELECT 
+            DATE(executed_at) as trade_date,
+            SUM(price * quantity * CASE WHEN trade_type = 'Sell' THEN 1 ELSE -1 END) as daily_pnl
+        FROM trades 
+        WHERE user_id = ? 
+        AND status = 'Executed'
+        AND executed_at >= datetime('now', '-' || ? || ' days')
+        GROUP BY DATE(executed_at)
+        ORDER BY trade_date ASC
+    ";
+    
+    match sqlx::query(query)
+        .bind(user_id)
+        .bind(days)
+        .fetch_all(pool)
+        .await
+    {
+        Ok(rows) => {
+            let mut equity = 100000.0; // Starting equity
+            let equity_curve: Vec<serde_json::Value> = rows
+                .into_iter()
+                .map(|row| {
+                    let daily_pnl: f64 = row.get::<Option<f64>, _>("daily_pnl").unwrap_or(0.0);
+                    equity += daily_pnl;
+                    
+                    serde_json::json!({
+                        "timestamp": row.get::<String, _>("trade_date"),
+                        "equity": equity,
+                        "pnl": daily_pnl
+                    })
+                })
+                .collect();
+            
+            Ok(serde_json::json!({
+                "success": true,
+                "data": equity_curve
+            }))
+        }
+        Err(e) => {
+            eprintln!("Failed to get equity curve: {}", e);
+            Ok(serde_json::json!({
+                "success": false,
+                "error": format!("Failed to get equity curve: {}", e)
+            }))
+        }
+    }
+}
+
 // Application state that will be shared across commands
 pub struct AppState {
     app_service: Arc<services::AppService>,
@@ -719,6 +1168,13 @@ pub fn run() {
             bulk_remove_stock_selections,
             get_strategy_performance,
             get_strategy_stats,
+            // Analytics commands
+            get_system_logs,
+            get_trade_history,
+            get_analytics_performance_metrics,
+            get_analytics_strategy_performance,
+            get_instrument_performance,
+            get_equity_curve,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

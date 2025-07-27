@@ -77,7 +77,7 @@ impl Logger {
                         "Info log entry"
                     );
                 },
-                LogLevel::Warning => {
+                LogLevel::Warn => {
                     warn!(
                         message = %message,
                         context = %context.unwrap_or(""),
@@ -93,7 +93,7 @@ impl Logger {
                         "Error log entry"
                     );
                 },
-                LogLevel::Critical => {
+                LogLevel::Error => {
                     error!(
                         message = %message,
                         context = %context.unwrap_or(""),
@@ -118,11 +118,11 @@ impl Logger {
             let pool = db.get_pool();
             
             let level_int = match log.log_level {
-                LogLevel::Debug => 0,
-                LogLevel::Info => 1,
-                LogLevel::Warning => 2,
-                LogLevel::Error => 3,
-                LogLevel::Critical => 4,
+                LogLevel::Debug => 4,
+                LogLevel::Info => 3,
+                LogLevel::Warn => 2,
+                LogLevel::Error => 1,
+                LogLevel::Trace => 5,
             };
             
             sqlx::query(
@@ -168,11 +168,11 @@ impl Logger {
     }
     
     pub async fn warning(&self, message: &str, context: Option<&str>) -> Result<()> {
-        self.log(LogLevel::Warning, message, context).await
+        self.log(LogLevel::Warn, message, context).await
     }
     
     pub async fn warning_structured(&self, message: &str, context: Option<&str>, data: HashMap<String, Value>) -> Result<()> {
-        self.log_structured(LogLevel::Warning, message, context, Some(data)).await
+        self.log_structured(LogLevel::Warn, message, context, Some(data)).await
     }
     
     pub async fn error(&self, message: &str, context: Option<&str>) -> Result<()> {
@@ -184,11 +184,11 @@ impl Logger {
     }
     
     pub async fn critical(&self, message: &str, context: Option<&str>) -> Result<()> {
-        self.log(LogLevel::Critical, message, context).await
+        self.log(LogLevel::Error, message, context).await
     }
     
     pub async fn critical_structured(&self, message: &str, context: Option<&str>, data: HashMap<String, Value>) -> Result<()> {
-        self.log_structured(LogLevel::Critical, message, context, Some(data)).await
+        self.log_structured(LogLevel::Error, message, context, Some(data)).await
     }
     
     /// Log trading activity with structured data
