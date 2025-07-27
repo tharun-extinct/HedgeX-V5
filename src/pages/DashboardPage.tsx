@@ -403,32 +403,68 @@ const DashboardPage: React.FC = () => {
 
   return (
     <div className="p-6 space-y-6 bg-background">
-      {/* Header with Market Status */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      {/* Header with Trading Controls */}
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">Monitor your trading performance in real-time</p>
+          <h1 className="text-2xl font-bold text-foreground">Trading Dashboard</h1>
+          <p className="text-sm text-muted-foreground">
+            Welcome back, {user?.username}. Monitor and control your trading operations.
+          </p>
         </div>
         
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Market Status */}
           <div className={`flex items-center space-x-2 px-3 py-1.5 rounded-md font-medium text-sm ${
             isMarketOpen 
-              ? 'bg-success/10 text-success' 
-              : 'bg-destructive/10 text-destructive'
+              ? 'bg-green-50 text-green-700 border border-green-200' 
+              : 'bg-red-50 text-red-700 border border-red-200'
           }`}>
-            <div className={`w-2 h-2 rounded-full ${isMarketOpen ? 'bg-success' : 'bg-destructive'} animate-pulse`}></div>
+            <div className={`w-2 h-2 rounded-full ${isMarketOpen ? 'bg-green-500' : 'bg-red-500'} animate-pulse`}></div>
             <span>{isMarketOpen ? 'Market Open' : 'Market Closed'}</span>
+          </div>
+
+          {/* Trading Status */}
+          <Badge variant={tradingStatus.is_trading ? "default" : "secondary"} className="text-xs">
+            {tradingStatus.is_trading ? 'Trading Active' : 'Trading Stopped'}
+          </Badge>
+
+          {/* Trading Controls */}
+          <div className="flex items-center space-x-2">
+            {!tradingStatus.is_trading ? (
+              <Button 
+                variant="default" 
+                size="sm" 
+                onClick={handleStartTrading}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                <Play className="w-4 h-4 mr-1" />
+                Start Trading
+              </Button>
+            ) : (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleStopTrading}
+              >
+                <Pause className="w-4 h-4 mr-1" />
+                Stop Trading
+              </Button>
+            )}
+
+            <EmergencyStopButton
+              onEmergencyStop={handleEmergencyStop}
+              isTrading={tradingStatus.is_trading}
+              isLoading={isLoading}
+            />
           </div>
           
           <Button 
             variant="outline" 
             size="sm" 
-            className="gap-1" 
             onClick={handleRefresh}
             disabled={refreshing}
           >
             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            Refresh
           </Button>
         </div>
       </div>
@@ -440,12 +476,21 @@ const DashboardPage: React.FC = () => {
         </div>
       )}
 
+      {/* Connection Status */}
+      <ConnectionStatus
+        status={tradingStatus.connection_status}
+        lastConnected={tradingStatus.last_connected}
+        onReconnect={handleReconnect}
+        onDisconnect={handleDisconnect}
+        isMarketOpen={isMarketOpen}
+      />
+
       {/* Key Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <DashboardCard
           title="Account Balance"
-          value="₹1,25,000"
-          description="Available for trading"
+          value={`₹${accountInfo?.balance.toLocaleString('en-IN') || '0'}`}
+          description={`Available: ₹${accountInfo?.available_margin.toLocaleString('en-IN') || '0'}`}
           icon={<DollarSign className="w-4 h-4" />}
         />
         
@@ -454,129 +499,80 @@ const DashboardPage: React.FC = () => {
           value={`${totalPnL >= 0 ? '+' : ''}₹${totalPnL.toFixed(2)}`}
           change={totalPnLPercent}
           icon={totalPnL >= 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-          className={totalPnL >= 0 ? "border-success/20" : "border-destructive/20"}
+          className={totalPnL >= 0 ? "border-green-200" : "border-red-200"}
         />
         
         <DashboardCard
           title="Open Positions"
           value={positions.length.toString()}
-          description="Active trades"
+          description={`${tradingStatus.total_trades_today} trades today`}
           icon={<Target className="w-4 h-4" />}
         />
         
         <DashboardCard
           title="Active Strategies"
-          value="2"
+          value={tradingStatus.active_strategies.toString()}
           description="Running algorithms"
           icon={<Activity className="w-4 h-4" />}
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Market Watch */}
-        <Card className="lg:col-span-2 shadow-sm">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-            <div>
-              <CardTitle className="text-xl font-medium">Market Watch</CardTitle>
-              <CardDescription>NIFTY 50 top performers</CardDescription>
-            </div>
-            <BarChart2 className="w-5 h-5 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="rounded-md overflow-hidden">
-              {marketData.map((stock) => (
-                <div 
-                  key={stock.symbol} 
-                  className={`p-4 border-b border-border hover:bg-muted/50 transition-colors`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-3">
-                        <div className={`w-2 h-2 rounded-full ${stock.change >= 0 ? 'bg-success' : 'bg-destructive'} animate-pulse`}></div>
-                        <div>
-                          <h3 className="font-semibold text-foreground">{stock.symbol}</h3>
-                          <p className="text-xs text-muted-foreground">Vol: {(stock.volume / 1000).toFixed(0)}K</p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-medium text-foreground">₹{stock.lastPrice.toFixed(2)}</div>
-                      <div className={`text-xs font-medium flex items-center ${stock.change >= 0 ? 'text-success' : 'text-destructive'}`}>
-                        {stock.change >= 0 ? <ArrowUpRight className="w-3 h-3 mr-1" /> : <ArrowDownRight className="w-3 h-3 mr-1" />}
-                        {stock.change >= 0 ? '+' : ''}{stock.change.toFixed(2)} ({stock.changePercent.toFixed(2)}%)
-                      </div>
-                    </div>
-                    <div className="flex space-x-2 ml-4">
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        className="h-8 text-xs rounded-md border-success/50 text-success hover:bg-success/10 hover:text-success"
-                        onClick={() => handleQuickTrade(stock.symbol, 'BUY')}
-                      >
-                        Buy
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        className="h-8 text-xs rounded-md border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                        onClick={() => handleQuickTrade(stock.symbol, 'SELL')}
-                      >
-                        Sell
-                      </Button>
-                    </div>
-                  </div>
+      {/* Main Dashboard Grid */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+        {/* Market Data Display */}
+        <div className="xl:col-span-8">
+          <MarketDataDisplay
+            marketData={marketData}
+            onRefresh={handleRefresh}
+            onQuickTrade={handleQuickTrade}
+            onToggleFavorite={handleToggleFavorite}
+            favorites={favorites}
+            isLoading={refreshing}
+            className="h-[600px]"
+          />
+        </div>
+
+        {/* Positions Panel */}
+        <div className="xl:col-span-4 space-y-4">
+          <Card className="shadow-sm">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg font-semibold">Open Positions</CardTitle>
+                <Badge variant="outline" className="text-xs">
+                  {positions.length} positions
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3 max-h-[250px] overflow-y-auto">
+              {positions.length === 0 ? (
+                <div className="text-center py-8">
+                  <Target className="w-8 h-8 mx-auto mb-2 text-muted-foreground opacity-50" />
+                  <p className="text-muted-foreground text-sm">No open positions</p>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-        
-        {/* Positions */}
-        <Card className="shadow-sm">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-            <div>
-              <CardTitle className="text-xl font-medium">Your Positions</CardTitle>
-              <CardDescription>Current open trades</CardDescription>
-            </div>
-            <Target className="w-5 h-5 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="rounded-md overflow-hidden">
-              {positions.map((position) => (
-                <div key={position.symbol} className="p-4 border-b border-border hover:bg-muted/50 transition-colors">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <div className={`w-2 h-2 rounded-full ${position.pnl >= 0 ? 'bg-success' : 'bg-destructive'}`}></div>
-                        <h3 className="font-semibold text-foreground">{position.symbol}</h3>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {position.quantity > 0 ? 'LONG' : 'SHORT'} {Math.abs(position.quantity)} @ ₹{position.entryPrice.toFixed(2)}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <div className={`font-medium ${position.pnl >= 0 ? 'text-success' : 'text-destructive'}`}>
-                        {position.pnl >= 0 ? '+' : ''}₹{position.pnl.toFixed(2)}
-                      </div>
-                      <div className={`text-xs ${position.pnl >= 0 ? 'text-success' : 'text-destructive'}`}>
-                        {position.pnlPercent >= 0 ? '+' : ''}{position.pnlPercent.toFixed(2)}%
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              
-              {positions.length === 0 && (
-                <div className="p-8 text-center">
-                  <p className="text-muted-foreground">No open positions</p>
-                  <Button variant="outline" size="sm" className="mt-4">
-                    Open New Position
-                  </Button>
-                </div>
+              ) : (
+                positions.map((position) => (
+                  <PositionCard
+                    key={position.symbol}
+                    position={position}
+                    onClose={handleClosePosition}
+                    onModify={handleModifyPosition}
+                    className="mb-3"
+                  />
+                ))
               )}
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+
+          {/* Order Book */}
+          <OrderBook
+            orders={orders}
+            onRefresh={handleRefresh}
+            onCancelOrder={handleCancelOrder}
+            onModifyOrder={handleModifyOrder}
+            isLoading={refreshing}
+            className="h-[320px]"
+          />
+        </div>
       </div>
     </div>
   );

@@ -83,7 +83,8 @@
   - Write frontend tests for authentication flows and session management
   - _Requirements: 1.1, 1.2, 1.4, 1.5_
 
-- [-] 9. Create comprehensive trading dashboard with real-time updates
+- [ ] 9. Create comprehensive trading dashboard with real-time updates
+
 
 
 
