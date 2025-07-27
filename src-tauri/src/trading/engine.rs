@@ -11,7 +11,7 @@ use crate::services::enhanced_database_service::EnhancedDatabaseService;
 use crate::services::kite_service::KiteService;
 use crate::trading::risk_manager::RiskManager;
 use crate::trading::strategy_manager::StrategyManager;
-use rust_decimal::{Decimal, prelude::ToPrimitive};
+use rust_decimal::{Decimal, prelude::{ToPrimitive, FromPrimitive}};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -294,14 +294,14 @@ impl TradingEngine {
             .execute(db_service.get_database().get_pool())
             .await?;
             
+        // Update risk manager with new trade first
+        risk_manager.update_position(&trade).await?;
+        
         // Add to active trades
         {
             let mut trades = active_trades.write().await;
             trades.insert(trade.id.clone(), trade);
         }
-        
-        // Update risk manager with new trade
-        risk_manager.update_position(&trade).await?;
         
         Ok(OrderResponse {
             order_id: kite_response.order_id,
@@ -475,7 +475,8 @@ impl TradingEngine {
             
         // Simple position sizing based on risk percentage
         let account_value = Decimal::from(100000); // Assume 1 lakh account value
-        let risk_amount = account_value * Decimal::from(strategy.risk_percentage / 100.0);
+        let risk_percentage_decimal = Decimal::from_f64(strategy.risk_percentage / 100.0).unwrap_or(Decimal::from(1) / Decimal::from(100));
+        let risk_amount = account_value * risk_percentage_decimal;
         
         let position_size = if signal.price > Decimal::ZERO {
             (risk_amount / signal.price).to_i32().unwrap_or(0)

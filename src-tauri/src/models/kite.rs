@@ -1037,6 +1037,17 @@ pub enum KiteOrderVariety {
     AMO,
 }
 
+impl fmt::Display for KiteOrderVariety {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            KiteOrderVariety::Regular => write!(f, "regular"),
+            KiteOrderVariety::CO => write!(f, "co"),
+            KiteOrderVariety::BO => write!(f, "bo"),
+            KiteOrderVariety::AMO => write!(f, "amo"),
+        }
+    }
+}
+
 impl Serialize for KiteOrderVariety {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

@@ -4,6 +4,7 @@ use crate::models::trading::{
 };
 use crate::services::enhanced_database_service::EnhancedDatabaseService;
 use rust_decimal::Decimal;
+use rust_decimal::prelude::ToPrimitive;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -189,7 +190,7 @@ impl RiskManager {
         let daily_pnl = self.daily_pnl.read().await;
         let current_pnl = daily_pnl.get(&self.user_id).unwrap_or(&Decimal::ZERO);
         
-        if current_pnl <= -risk_limits.max_daily_loss {
+        if *current_pnl <= -risk_limits.max_daily_loss {
             warn!("Order rejected: Daily loss limit exceeded ({} <= -{})", 
                   current_pnl, risk_limits.max_daily_loss);
             return Ok(false);

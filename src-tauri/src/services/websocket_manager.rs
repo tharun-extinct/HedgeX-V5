@@ -507,7 +507,8 @@ impl WebSocketManager {
         db_service: &Arc<EnhancedDatabaseService>,
         market_data: &MarketData,
     ) -> Result<()> {
-        let pool = db_service.get_database().get_pool();
+        let db = db_service.get_database();
+        let pool = db.get_pool();
         
         sqlx::query(
             r#"

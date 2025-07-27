@@ -92,7 +92,7 @@ impl EnhancedLogger {
                     .with_writer(non_blocking)
                     .with_ansi(false)
                     .with_span_events(FmtSpan::CLOSE)
-                    .with_timer(ChronoUtc::rfc3339())
+                    .with_timer(ChronoUtc::rfc_3339())
                     .json()
             )
             .with(filter)
@@ -162,7 +162,7 @@ impl EnhancedLogger {
                         "Info log entry"
                     );
                 },
-                LogLevel::Warning => {
+                LogLevel::Warn => {
                     warn!(
                         message = %message,
                         context = %context.unwrap_or(""),
@@ -178,7 +178,7 @@ impl EnhancedLogger {
                         "Error log entry"
                     );
                 },
-                LogLevel::Critical => {
+                LogLevel::Error => {
                     error!(
                         message = %message,
                         context = %context.unwrap_or(""),
@@ -203,11 +203,11 @@ impl EnhancedLogger {
             let pool = db.get_pool();
             
             let level_int = match log.log_level {
-                LogLevel::Debug => 0,
-                LogLevel::Info => 1,
-                LogLevel::Warning => 2,
-                LogLevel::Error => 3,
-                LogLevel::Critical => 4,
+                LogLevel::Debug => 4,
+                LogLevel::Info => 3,
+                LogLevel::Warn => 2,
+                LogLevel::Error => 1,
+                LogLevel::Trace => 5,
             };
             
             sqlx::query(
@@ -312,12 +312,12 @@ impl EnhancedLogger {
     
     /// Warning level log
     pub async fn warning(&self, message: &str, context: Option<&str>) -> Result<()> {
-        self.log(LogLevel::Warning, message, context).await
+        self.log(LogLevel::Warn, message, context).await
     }
     
     /// Warning level log with structured data
     pub async fn warning_structured(&self, message: &str, context: Option<&str>, data: HashMap<String, Value>) -> Result<()> {
-        self.log_structured(LogLevel::Warning, message, context, Some(data)).await
+        self.log_structured(LogLevel::Warn, message, context, Some(data)).await
     }
     
     /// Error level log
@@ -332,12 +332,12 @@ impl EnhancedLogger {
     
     /// Critical level log
     pub async fn critical(&self, message: &str, context: Option<&str>) -> Result<()> {
-        self.log(LogLevel::Critical, message, context).await
+        self.log(LogLevel::Error, message, context).await
     }
     
     /// Critical level log with structured data
     pub async fn critical_structured(&self, message: &str, context: Option<&str>, data: HashMap<String, Value>) -> Result<()> {
-        self.log_structured(LogLevel::Critical, message, context, Some(data)).await
+        self.log_structured(LogLevel::Error, message, context, Some(data)).await
     }
     
     /// Log trading activity with structured data
@@ -414,11 +414,11 @@ impl EnhancedLogger {
         
         let query = if let Some(level) = level_filter {
             let level_int = match level {
-                LogLevel::Debug => 0,
-                LogLevel::Info => 1,
-                LogLevel::Warning => 2,
-                LogLevel::Error => 3,
-                LogLevel::Critical => 4,
+                LogLevel::Debug => 4,
+                LogLevel::Info => 3,
+                LogLevel::Warn => 2,
+                LogLevel::Error => 1,
+                LogLevel::Trace => 5,
             };
             
             sqlx::query_as::<_, SystemLog>(

@@ -8,7 +8,7 @@ use sqlx::migrate::MigrateDatabase;
 use sqlx::sqlite::Sqlite;
 use tokio::fs::{create_dir_all, remove_file};
 use tokio::time::{Duration, sleep};
-use anyhow::Context;
+
 use std::time::Instant;
 
 /// Enhanced database utilities for connection management and migrations
@@ -44,7 +44,7 @@ impl DatabaseManager {
                 
             // Initialize database
             let database = Database::new_with_config(app_data_dir, config.clone()).await
-                .with_context(|| "Failed to initialize database")?;
+                .map_err(|e| HedgeXError::DatabaseError(sqlx::Error::Configuration(format!("Failed to initialize database: {}", e).into())))?;
                 
             Ok::<_, HedgeXError>(Self {
                 database: Arc::new(database),
@@ -148,7 +148,7 @@ impl DatabaseManager {
                 
             // Reinitialize the database
             let new_db = Database::new_with_config(&self.app_data_dir, self.config.clone()).await
-                .with_context(|| "Failed to reinitialize database after restore")?;
+                .map_err(|e| HedgeXError::DatabaseError(sqlx::Error::Configuration(format!("Failed to reinitialize database after restore: {}", e).into())))?;
                 
             // Replace the database instance
             // This is a bit hacky but necessary to update the Arc<Database>

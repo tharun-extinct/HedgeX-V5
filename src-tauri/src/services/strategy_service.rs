@@ -2,6 +2,7 @@ use crate::error::{HedgeXError, Result};
 use crate::models::trading::{StrategyParams, StockSelection, PerformanceMetrics};
 use crate::services::enhanced_database_service::EnhancedDatabaseService;
 use rust_decimal::Decimal;
+use rust_decimal::prelude::ToPrimitive;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::str::FromStr;

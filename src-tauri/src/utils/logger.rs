@@ -265,11 +265,11 @@ impl Logger {
         
         let query = if let Some(level) = level_filter {
             let level_int = match level {
-                LogLevel::Debug => 0,
-                LogLevel::Info => 1,
-                LogLevel::Warning => 2,
-                LogLevel::Error => 3,
-                LogLevel::Critical => 4,
+                LogLevel::Debug => 4,
+                LogLevel::Info => 3,
+                LogLevel::Warn => 2,
+                LogLevel::Error => 1,
+                LogLevel::Trace => 5,
             };
             
             sqlx::query_as::<_, SystemLog>(

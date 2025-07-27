@@ -462,7 +462,8 @@ impl StrategyManager {
         
         // Check if symbol is in active stock selection
         let selections = self.stock_selections.read().await;
-        let user_stocks = selections.get(&self.user_id).unwrap_or(&Vec::new());
+        let empty_vec = Vec::new();
+        let user_stocks = selections.get(&self.user_id).unwrap_or(&empty_vec);
         
         let is_active_stock = user_stocks.iter()
             .any(|s| s.symbol == market_data.symbol && s.is_active);

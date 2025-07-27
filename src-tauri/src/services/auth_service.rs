@@ -418,7 +418,8 @@ impl AuthService {
             info!("Retrieving user information for user: {}", user_id);
             
             // Get user from database
-            let pool = self.db_service.get_database().get_pool();
+            let db = self.db_service.get_database();
+            let pool = db.get_pool();
             let user = sqlx::query_as::<_, (String, String, chrono::DateTime<chrono::Utc>, Option<chrono::DateTime<chrono::Utc>>)>(
                 "SELECT id, username, created_at, last_login FROM users WHERE id = ?"
             )
@@ -496,7 +497,8 @@ impl AuthService {
         async move {
             info!("Cleaning up expired sessions");
             
-            let pool = self.db_service.get_database().get_pool();
+            let db = self.db_service.get_database();
+            let pool = db.get_pool();
             let result = sqlx::query(
                 "DELETE FROM session_tokens WHERE expires_at < ?"
             )
