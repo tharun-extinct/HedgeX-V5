@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { apiClient, AuthenticationError, ApiError } from '../lib/api-client';
 
 // Types for authentication
 export interface User {
@@ -126,7 +126,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      const userId = await invoke<string>('validate_session', { token });
+      const userId = await apiClient.validateSession(token);
       
       // If validation succeeds, update session
       setSessionToken(token);
@@ -139,7 +139,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else {
         // Fetch user data if not in localStorage
         try {
-          const userInfo = await invoke<User>('get_user_info', { userId });
+          const userInfo = await apiClient.getUserInfo(userId);
           setUser(userInfo);
           localStorage.setItem(USER_DATA_KEY, JSON.stringify(userInfo));
         } catch (err) {
@@ -179,18 +179,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       if (isTauri) {
-        const sessionData = await invoke<SessionToken>('login', credentials);
+        const sessionToken = await apiClient.login(credentials);
+        
+        // Create session expiry (24 hours from now)
+        const expiryTime = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
         
         // Store session data
-        localStorage.setItem(SESSION_TOKEN_KEY, sessionData.token);
-        localStorage.setItem(SESSION_EXPIRY_KEY, sessionData.expires_at);
+        localStorage.setItem(SESSION_TOKEN_KEY, sessionToken);
+        localStorage.setItem(SESSION_EXPIRY_KEY, expiryTime);
+        
+        // Validate session to get user ID
+        const userId = await apiClient.validateSession(sessionToken);
         
         // Fetch user info
-        const userInfo = await invoke<User>('get_user_info', { userId: sessionData.user_id });
+        const userInfo = await apiClient.getUserInfo(userId);
         localStorage.setItem(USER_DATA_KEY, JSON.stringify(userInfo));
         
         // Update state
-        setSessionToken(sessionData.token);
+        setSessionToken(sessionToken);
         setUser(userInfo);
         setIsAuthenticated(true);
       } else {
@@ -220,7 +226,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (err: any) {
       console.error('Login failed:', err);
-      setError(err.message || 'Login failed. Please check your credentials.');
+      
+      let errorMessage = 'Login failed. Please check your credentials.';
+      if (err instanceof AuthenticationError) {
+        errorMessage = err.message;
+      } else if (err instanceof ApiError) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
       clearSession();
       throw err;
     } finally {
@@ -235,7 +249,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       if (isTauri) {
-        const result = await invoke<{ success: boolean; message?: string; token?: string; user?: User }>('create_user', {
+        const result = await apiClient.createUser({
           fullName: userData.full_name || '',
           email: userData.email || '',
           username: userData.username,
@@ -246,18 +260,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           throw new Error(result.message || 'Registration failed');
         }
         
-        // If registration returns a token, log the user in immediately
-        if (result.token && result.user) {
-          const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-          
-          localStorage.setItem(SESSION_TOKEN_KEY, result.token);
-          localStorage.setItem(SESSION_EXPIRY_KEY, expiry);
-          localStorage.setItem(USER_DATA_KEY, JSON.stringify(result.user));
-          
-          setSessionToken(result.token);
-          setUser(result.user);
-          setIsAuthenticated(true);
-        }
+        // Registration successful - user needs to login separately
+        // Don't auto-login for security reasons
       } else {
         // Web mode fallback
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -297,7 +301,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (isTauri && token) {
         try {
-          await invoke('logout', { token });
+          await apiClient.logout(token);
         } catch (err) {
           console.error('Backend logout failed:', err);
           // Continue with local logout even if backend fails
@@ -319,14 +323,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       if (isTauri) {
-        await invoke('store_api_credentials', {
-          userId: user.id,
-          credentials: {
-            api_key: credentials.api_key,
-            api_secret: credentials.api_secret,
-            access_token: null,
-            access_token_expiry: null,
-          },
+        await apiClient.storeApiCredentials(user.id, {
+          api_key: credentials.api_key,
+          api_secret: credentials.api_secret,
         });
       } else {
         // Web mode - store in localStorage (not secure, for demo only)
@@ -334,7 +333,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (err: any) {
       console.error('Failed to save API credentials:', err);
-      throw new Error(err.message || 'Failed to save API credentials');
+      
+      let errorMessage = 'Failed to save API credentials';
+      if (err instanceof ApiError) {
+        errorMessage = err.message;
+      }
+      
+      throw new Error(errorMessage);
     }
   }, [isAuthenticated, user]);
 
@@ -346,8 +351,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       if (isTauri) {
-        const credentials = await invoke<ApiCredentials>('get_api_credentials', { userId: user.id });
-        return credentials;
+        const credentials = await apiClient.getApiCredentials(user.id);
+        return {
+          api_key: credentials.api_key,
+          api_secret: credentials.api_secret
+        };
       } else {
         // Web mode - get from localStorage
         const stored = localStorage.getItem('hedgex_api_credentials');

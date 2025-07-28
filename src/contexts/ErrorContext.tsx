@@ -290,8 +290,8 @@ export const useAsyncOperation = () => {
   const { handleAsyncError, addError } = useError();
   const [loading, setLoading] = useState(false);
 
-  const execute = useCallback(async <T>(
-    operation: () => Promise<T>,
+  const execute = useCallback(async (
+    operation: () => Promise<any>,
     options?: {
       loadingMessage?: string;
       successMessage?: string;
