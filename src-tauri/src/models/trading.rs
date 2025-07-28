@@ -20,6 +20,18 @@ impl std::fmt::Display for TradeType {
     }
 }
 
+impl std::str::FromStr for TradeType {
+    type Err = String;
+    
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "Buy" => Ok(TradeType::Buy),
+            "Sell" => Ok(TradeType::Sell),
+            _ => Err(format!("Invalid TradeType: {}", s)),
+        }
+    }
+}
+
 /// Trade status enumeration
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum TradeStatus {

@@ -4,6 +4,7 @@ pub mod enhanced_logger;
 pub mod database_utils;
 pub mod error_recovery;
 pub mod performance_monitor;
+pub mod csv_parser;
 
 #[cfg(test)]
 mod tests {
@@ -17,3 +18,4 @@ pub use logger::Logger;
 pub use enhanced_logger::EnhancedLogger;
 pub use error_recovery::{ErrorRecoveryManager, CircuitBreaker, ExponentialBackoff, HealthCheckManager, HealthCheck, HealthStatus};
 pub use performance_monitor::{PerformanceMonitor, PerformanceMetrics, RequestTimer, PerformanceAlert, AlertThreshold};
+pub use csv_parser::CsvParser;
