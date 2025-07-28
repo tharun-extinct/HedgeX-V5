@@ -1,6 +1,6 @@
 use crate::db::DatabaseConfig;
 use crate::error::{HedgeXError, Result};
-use crate::services::{DatabaseService, EnhancedDatabaseService, AuthService, WebSocketManager};
+use crate::services::{DatabaseService, EnhancedDatabaseService, DataPersistenceService, DataPersistenceConfig, AuthService, WebSocketManager};
 use crate::utils::{Logger, CryptoService};
 use std::path::Path;
 use std::sync::Arc;
@@ -11,6 +11,7 @@ use tracing::{info, debug, error};
 pub struct AppService {
     database_service: Arc<DatabaseService>,
     enhanced_database_service: Arc<EnhancedDatabaseService>,
+    data_persistence_service: Arc<DataPersistenceService>,
     auth_service: Arc<AuthService>,
     websocket_manager: Arc<WebSocketManager>,
     logger: Arc<Mutex<Logger>>,
@@ -40,6 +41,17 @@ impl AppService {
         // Initialize WebSocket manager
         let websocket_manager = Arc::new(WebSocketManager::new(Arc::clone(&enhanced_database_service)));
         
+        // Initialize data persistence service
+        let data_persistence_service = Arc::new(
+            DataPersistenceService::new(
+                enhanced_database_service.get_database(),
+                enhanced_database_service.get_crypto_service(),
+                enhanced_database_service.get_logger(),
+                app_data_dir,
+                DataPersistenceConfig::default(),
+            ).await?
+        );
+        
         // Initialize legacy crypto service for backward compatibility
         let crypto_service = Arc::new(CryptoService::new());
         
@@ -60,6 +72,7 @@ impl AppService {
         let service = Self {
             database_service,
             enhanced_database_service: Arc::clone(&enhanced_database_service),
+            data_persistence_service,
             auth_service,
             websocket_manager,
             logger: legacy_logger.clone(),
@@ -98,6 +111,17 @@ impl AppService {
         // Initialize WebSocket manager
         let websocket_manager = Arc::new(WebSocketManager::new(Arc::clone(&enhanced_database_service)));
         
+        // Initialize data persistence service
+        let data_persistence_service = Arc::new(
+            DataPersistenceService::new(
+                enhanced_database_service.get_database(),
+                enhanced_database_service.get_crypto_service(),
+                enhanced_database_service.get_logger(),
+                app_data_dir,
+                DataPersistenceConfig::default(),
+            ).await?
+        );
+        
         // Initialize legacy crypto service for backward compatibility
         let crypto_service = Arc::new(CryptoService::new());
         
@@ -119,6 +143,7 @@ impl AppService {
         let service = Self {
             database_service,
             enhanced_database_service: Arc::clone(&enhanced_database_service),
+            data_persistence_service,
             auth_service,
             websocket_manager,
             logger: legacy_logger2,
@@ -144,6 +169,11 @@ impl AppService {
     /// Get the enhanced database service
     pub fn get_enhanced_database_service(&self) -> Arc<EnhancedDatabaseService> {
         Arc::clone(&self.enhanced_database_service)
+    }
+    
+    /// Get the data persistence service
+    pub fn get_data_persistence_service(&self) -> Arc<DataPersistenceService> {
+        Arc::clone(&self.data_persistence_service)
     }
     
     /// Get the authentication service

@@ -80,6 +80,7 @@ async fn login(
     state: tauri::State<'_, AppState>
 ) -> Result<String, String> {
     use crate::services::auth_service::LoginRequest;
+use crate::services::{DataExportRequest, ExportType, ExportFormat, UserSettings};
     
     let login_request = LoginRequest {
         username,
@@ -957,6 +958,297 @@ async fn get_instrument_performance(
     }
 }
 
+// Data persistence commands
+#[tauri::command]
+async fn create_backup(
+    label: String,
+    state: tauri::State<'_, AppState>
+) -> Result<serde_json::Value, String> {
+    match state.app_service.get_data_persistence_service().create_manual_backup(&label).await {
+        Ok(metadata) => {
+            Ok(serde_json::json!({
+                "success": true,
+                "data": {
+                    "id": metadata.id,
+                    "label": metadata.label,
+                    "created_at": metadata.created_at.to_rfc3339(),
+                    "file_size": metadata.file_size,
+                    "compressed": metadata.compressed,
+                    "encrypted": metadata.encrypted
+                }
+            }))
+        }
+        Err(e) => {
+            Ok(serde_json::json!({
+                "success": false,
+                "error": format!("Failed to create backup: {}", e)
+            }))
+        }
+    }
+}
+
+#[tauri::command]
+async fn list_backups(
+    state: tauri::State<'_, AppState>
+) -> Result<serde_json::Value, String> {
+    match state.app_service.get_data_persistence_service().list_backups().await {
+        Ok(backups) => {
+            let backup_list: Vec<serde_json::Value> = backups
+                .into_iter()
+                .map(|backup| {
+                    serde_json::json!({
+                        "id": backup.id,
+                        "label": backup.label,
+                        "created_at": backup.created_at.to_rfc3339(),
+                        "file_size": backup.file_size,
+                        "compressed": backup.compressed,
+                        "encrypted": backup.encrypted,
+                        "backup_type": format!("{:?}", backup.backup_type)
+                    })
+                })
+                .collect();
+            
+            Ok(serde_json::json!({
+                "success": true,
+                "data": backup_list
+            }))
+        }
+        Err(e) => {
+            Ok(serde_json::json!({
+                "success": false,
+                "error": format!("Failed to list backups: {}", e)
+            }))
+        }
+    }
+}
+
+#[tauri::command]
+async fn restore_backup(
+    backup_id: String,
+    state: tauri::State<'_, AppState>
+) -> Result<serde_json::Value, String> {
+    match state.app_service.get_data_persistence_service().restore_from_backup(&backup_id).await {
+        Ok(_) => {
+            Ok(serde_json::json!({
+                "success": true,
+                "message": "Backup restored successfully"
+            }))
+        }
+        Err(e) => {
+            Ok(serde_json::json!({
+                "success": false,
+                "error": format!("Failed to restore backup: {}", e)
+            }))
+        }
+    }
+}
+
+#[tauri::command]
+async fn export_data(
+    export_type: String,
+    format: String,
+    include_sensitive: bool,
+    compress: bool,
+    encrypt: bool,
+    state: tauri::State<'_, AppState>
+) -> Result<serde_json::Value, String> {
+    let user_id = "demo_user"; // TODO: Get from auth context
+    
+    let export_type_enum = match export_type.as_str() {
+        "all_data" => ExportType::AllData,
+        "trade_history" => ExportType::TradeHistory,
+        "strategy_data" => ExportType::StrategyData,
+        "user_settings" => ExportType::UserSettings,
+        "system_logs" => ExportType::SystemLogs,
+        _ => ExportType::AllData,
+    };
+    
+    let format_enum = match format.as_str() {
+        "json" => ExportFormat::Json,
+        "csv" => ExportFormat::Csv,
+        "sql" => ExportFormat::Sql,
+        _ => ExportFormat::Json,
+    };
+    
+    let request = DataExportRequest {
+        user_id: user_id.to_string(),
+        export_type: export_type_enum,
+        format: format_enum,
+        date_range: None,
+        include_sensitive,
+        compress,
+        encrypt,
+    };
+    
+    match state.app_service.get_data_persistence_service().export_data(request).await {
+        Ok(export_path) => {
+            Ok(serde_json::json!({
+                "success": true,
+                "data": {
+                    "export_path": export_path.to_string_lossy(),
+                    "message": "Data exported successfully"
+                }
+            }))
+        }
+        Err(e) => {
+            Ok(serde_json::json!({
+                "success": false,
+                "error": format!("Failed to export data: {}", e)
+            }))
+        }
+    }
+}
+
+#[tauri::command]
+async fn save_user_settings(
+    theme: String,
+    language: String,
+    timezone: String,
+    notifications_enabled: bool,
+    sound_enabled: bool,
+    auto_start_trading: bool,
+    default_risk_percentage: f64,
+    dashboard_layout: serde_json::Value,
+    chart_preferences: serde_json::Value,
+    state: tauri::State<'_, AppState>
+) -> Result<serde_json::Value, String> {
+    let user_id = "demo_user"; // TODO: Get from auth context
+    
+    let settings = UserSettings {
+        user_id: user_id.to_string(),
+        theme,
+        language,
+        timezone,
+        notifications_enabled,
+        sound_enabled,
+        auto_start_trading,
+        default_risk_percentage,
+        dashboard_layout,
+        chart_preferences,
+        created_at: chrono::Utc::now(),
+        updated_at: chrono::Utc::now(),
+    };
+    
+    match state.app_service.get_data_persistence_service().save_user_settings(&settings).await {
+        Ok(_) => {
+            Ok(serde_json::json!({
+                "success": true,
+                "message": "User settings saved successfully"
+            }))
+        }
+        Err(e) => {
+            Ok(serde_json::json!({
+                "success": false,
+                "error": format!("Failed to save user settings: {}", e)
+            }))
+        }
+    }
+}
+
+#[tauri::command]
+async fn load_user_settings(
+    state: tauri::State<'_, AppState>
+) -> Result<serde_json::Value, String> {
+    let user_id = "demo_user"; // TODO: Get from auth context
+    
+    match state.app_service.get_data_persistence_service().load_user_settings(user_id).await {
+        Ok(settings) => {
+            Ok(serde_json::json!({
+                "success": true,
+                "data": {
+                    "theme": settings.theme,
+                    "language": settings.language,
+                    "timezone": settings.timezone,
+                    "notifications_enabled": settings.notifications_enabled,
+                    "sound_enabled": settings.sound_enabled,
+                    "auto_start_trading": settings.auto_start_trading,
+                    "default_risk_percentage": settings.default_risk_percentage,
+                    "dashboard_layout": settings.dashboard_layout,
+                    "chart_preferences": settings.chart_preferences,
+                    "created_at": settings.created_at.to_rfc3339(),
+                    "updated_at": settings.updated_at.to_rfc3339()
+                }
+            }))
+        }
+        Err(e) => {
+            Ok(serde_json::json!({
+                "success": false,
+                "error": format!("Failed to load user settings: {}", e)
+            }))
+        }
+    }
+}
+
+#[tauri::command]
+async fn cleanup_old_data(
+    state: tauri::State<'_, AppState>
+) -> Result<serde_json::Value, String> {
+    let persistence_service = state.app_service.get_data_persistence_service();
+    
+    // Cleanup old logs
+    let logs_cleaned = match persistence_service.cleanup_old_logs().await {
+        Ok(count) => count,
+        Err(e) => {
+            return Ok(serde_json::json!({
+                "success": false,
+                "error": format!("Failed to cleanup old logs: {}", e)
+            }));
+        }
+    };
+    
+    // Archive old trade data
+    let trades_archived = match persistence_service.archive_old_trade_data().await {
+        Ok(count) => count,
+        Err(e) => {
+            return Ok(serde_json::json!({
+                "success": false,
+                "error": format!("Failed to archive old trade data: {}", e)
+            }));
+        }
+    };
+    
+    // Cleanup old backups
+    let backups_cleaned = match persistence_service.cleanup_old_backups().await {
+        Ok(count) => count,
+        Err(e) => {
+            return Ok(serde_json::json!({
+                "success": false,
+                "error": format!("Failed to cleanup old backups: {}", e)
+            }));
+        }
+    };
+    
+    Ok(serde_json::json!({
+        "success": true,
+        "data": {
+            "logs_cleaned": logs_cleaned,
+            "trades_archived": trades_archived,
+            "backups_cleaned": backups_cleaned,
+            "message": "Data cleanup completed successfully"
+        }
+    }))
+}
+
+#[tauri::command]
+async fn secure_delete_all_data(
+    state: tauri::State<'_, AppState>
+) -> Result<serde_json::Value, String> {
+    match state.app_service.get_data_persistence_service().secure_delete_all_data().await {
+        Ok(_) => {
+            Ok(serde_json::json!({
+                "success": true,
+                "message": "All data securely deleted"
+            }))
+        }
+        Err(e) => {
+            Ok(serde_json::json!({
+                "success": false,
+                "error": format!("Failed to securely delete data: {}", e)
+            }))
+        }
+    }
+}
+
 #[tauri::command]
 async fn get_equity_curve(
     state: tauri::State<'_, AppState>,
@@ -1303,6 +1595,15 @@ pub fn run() {
             get_system_health,
             get_error_recovery_status,
             reset_circuit_breaker,
+            // Data persistence commands
+            create_backup,
+            list_backups,
+            restore_backup,
+            export_data,
+            save_user_settings,
+            load_user_settings,
+            cleanup_old_data,
+            secure_delete_all_data,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -2030,6 +2030,7 @@ dependencies = [
  "base64 0.21.7",
  "chrono",
  "env_logger",
+ "flate2",
  "futures 0.3.31",
  "hmac",
  "log 0.4.27",

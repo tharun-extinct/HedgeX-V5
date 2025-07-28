@@ -430,6 +430,25 @@ impl EnhancedCryptoService {
         Ok(general_purpose::URL_SAFE.encode(&token_bytes))
     }
     
+    /// Calculate checksum of data using SHA-256
+    pub fn calculate_checksum(&self, data: &[u8]) -> Result<String> {
+        use ring::digest;
+        
+        let digest = digest::digest(&digest::SHA256, data);
+        Ok(general_purpose::STANDARD.encode(digest.as_ref()))
+    }
+    
+    /// Generate random bytes
+    pub fn generate_random_bytes(&self, size: usize) -> Result<Vec<u8>> {
+        let rng = rand::SystemRandom::new();
+        let mut bytes = vec![0u8; size];
+        
+        rng.fill(&mut bytes)
+            .map_err(|_| HedgeXError::CryptoError("Failed to generate random bytes".to_string()))?;
+            
+        Ok(bytes)
+    }
+    
     /// Get the inner CryptoService
     pub fn get_inner(&self) -> Arc<CryptoService> {
         Arc::clone(&self.inner)

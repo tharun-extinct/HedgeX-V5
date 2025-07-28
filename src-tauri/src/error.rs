@@ -82,6 +82,9 @@ pub enum HedgeXError {
     
     #[error("External service error: {0}")]
     ExternalServiceError(String),
+    
+    #[error("Compression error: {0}")]
+    CompressionError(String),
 }
 
 /// Result type alias for HedgeX operations
@@ -148,6 +151,7 @@ impl<T> ApiResult<T> {
             HedgeXError::ConcurrencyError(_) => Some("CONCURRENCY_ERROR".to_string()),
             HedgeXError::DataIntegrityError(_) => Some("DATA_INTEGRITY_ERROR".to_string()),
             HedgeXError::ExternalServiceError(_) => Some("EXTERNAL_SERVICE_ERROR".to_string()),
+            HedgeXError::CompressionError(_) => Some("COMPRESSION_ERROR".to_string()),
         };
         
         // Log the error with backtrace for debugging
