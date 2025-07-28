@@ -6,6 +6,7 @@ import DashboardPage from "./pages/DashboardPage";
 import StrategiesPage from "./pages/StrategiesPage";
 import TradesPage from "./pages/TradesPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
+import BacktestPage from "./pages/BacktestPage";
 import SettingsPage from "./pages/SettingsPage";
 import ProfilePage from "./pages/ProfilePage";
 import DashboardLayout from "./layouts/DashboardLayout";
@@ -77,6 +78,7 @@ const AppRoutes: React.FC = () => {
         <Route path="/strategies" element={<StrategiesPage />} />
         <Route path="/trades" element={<TradesPage />} />
         <Route path="/analytics" element={<AnalyticsPage />} />
+        <Route path="/backtest" element={<BacktestPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/profile" element={<ProfilePage />} />
       </Route>

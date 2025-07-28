@@ -140,14 +140,6 @@
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
 
 - [x] 14. Implement local backtesting engine
-
-
-
-
-
-
-
-
   - Create BacktestEngine struct with historical data processing capabilities
   - Implement strategy execution simulation on historical data
   - Build performance metrics calculation (P&L, drawdown, Sharpe ratio, etc.)
@@ -157,7 +149,9 @@
   - Write comprehensive tests for backtesting accuracy and performance
   - _Requirements: 9.1, 9.2, 9.3, 9.4_
 
-- [ ] 15. Build backtesting user interface
+- [x] 15. Build backtesting user interface
+
+
   - Create BacktestPage with strategy selection and parameter configuration
   - Implement historical data source selection (API or CSV upload)
   - Build date range and time frame selection controls

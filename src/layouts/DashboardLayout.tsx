@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { ThemeToggle } from '../components/ui/theme-toggle';
-import { Menu, X, ChevronRight, LayoutDashboard, Layers, ListOrdered, BarChart2, Settings, User, LogOut } from 'lucide-react';
+import { Menu, X, ChevronRight, LayoutDashboard, Layers, ListOrdered, BarChart2, TestTube, Settings, User, LogOut } from 'lucide-react';
 
 // Declare the __TAURI__ global property
 declare global {
@@ -43,6 +43,7 @@ const DashboardLayout: React.FC = () => {
     { to: '/strategies', label: 'Strategies', icon: <Layers className="w-5 h-5" /> },
     { to: '/trades', label: 'Trades', icon: <ListOrdered className="w-5 h-5" /> },
     { to: '/analytics', label: 'Analytics', icon: <BarChart2 className="w-5 h-5" /> },
+    { to: '/backtest', label: 'Backtest', icon: <TestTube className="w-5 h-5" /> },
     { to: '/settings', label: 'Settings', icon: <Settings className="w-5 h-5" /> },
     { to: '/profile', label: 'Profile', icon: <User className="w-5 h-5" /> },
   ];
