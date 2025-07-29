@@ -57,14 +57,15 @@ impl AppService {
         
         // Initialize legacy database service for backward compatibility
         // Create a basic logger for legacy compatibility
+        let database = enhanced_database_service.get_database();
         let legacy_logger = Arc::new(Mutex::new(
-            crate::utils::Logger::new(app_data_dir).await?
+            crate::utils::Logger::new(Arc::new(Mutex::new(database.as_ref().clone())), None)
         ));
         
         let database_service = Arc::new(
             DatabaseService::new(
                 app_data_dir, 
-                legacy_logger, 
+                legacy_logger.clone(), 
                 Arc::clone(&crypto_service)
             ).await?
         );
@@ -127,8 +128,9 @@ impl AppService {
         
         // Initialize legacy database service for backward compatibility
         // Create a basic logger for legacy compatibility
+        let database2 = enhanced_database_service.get_database();
         let legacy_logger2 = Arc::new(Mutex::new(
-            crate::utils::Logger::new(app_data_dir).await?
+            crate::utils::Logger::new(Arc::new(Mutex::new(database2.as_ref().clone())), None)
         ));
         
         let database_service = Arc::new(

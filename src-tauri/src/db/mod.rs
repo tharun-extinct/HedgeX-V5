@@ -11,6 +11,24 @@ pub struct Database {
     pub migrator: Option<Migrator>,
 }
 
+impl Clone for Database {
+    fn clone(&self) -> Self {
+        Self {
+            pool: self.pool.clone(),
+            migrator: None, // Migrator doesn't need to be cloned for most use cases
+        }
+    }
+}
+
+impl std::fmt::Debug for Database {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Database")
+            .field("pool", &"Pool<Sqlite>")
+            .field("migrator", &self.migrator.is_some())
+            .finish()
+    }
+}
+
 /// Database configuration options
 #[derive(Debug, Clone)]
 pub struct DatabaseConfig {

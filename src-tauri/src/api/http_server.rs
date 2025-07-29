@@ -258,8 +258,8 @@ struct ApiCredentialsRequest {
 }
 
 async fn save_api_credentials(
-    headers: HeaderMap,
     State(state): State<HttpServerState>,
+    headers: HeaderMap,
     Json(request): Json<ApiCredentialsRequest>,
 ) -> Result<Json<ApiResult<String>>, StatusCode> {
     let user_id = match extract_user_id_from_headers(&headers, &state.app_service.get_auth_service()).await {
@@ -297,8 +297,8 @@ struct ApiCredentialsResponse {
 }
 
 async fn get_api_credentials(
-    headers: HeaderMap,
     State(state): State<HttpServerState>,
+    headers: HeaderMap,
 ) -> Result<Json<ApiResult<ApiCredentialsResponse>>, StatusCode> {
     let user_id = match extract_user_id_from_headers(&headers, &state.app_service.get_auth_service()).await {
         Ok(id) => id,
@@ -707,8 +707,8 @@ async fn health_check(
     
     Ok(Json(ApiResult::success(health_info)))
 }
-// =======
-=====================================================================
+
+// ============================================================================
 // Strategy Management Endpoints
 // ============================================================================
 

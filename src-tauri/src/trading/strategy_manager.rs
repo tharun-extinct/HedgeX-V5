@@ -528,7 +528,7 @@ impl StrategyManager {
         let volume_factor = (market_data.volume as f64).log10() / 10.0; // Normalize volume
         let spread = market_data.ask - market_data.bid;
         let spread_factor = if market_data.ltp > Decimal::ZERO {
-            (spread / market_data.ltp).to_f64().unwrap_or(0.0)
+            ToPrimitive::to_f64(&(spread / market_data.ltp)).unwrap_or(0.0)
         } else {
             0.0
         };

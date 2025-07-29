@@ -13,6 +13,12 @@ pub enum LogLevel {
     Trace = 5,
 }
 
+impl From<LogLevel> for i32 {
+    fn from(level: LogLevel) -> Self {
+        level as i32
+    }
+}
+
 impl From<i32> for LogLevel {
     fn from(value: i32) -> Self {
         match value {
@@ -23,12 +29,6 @@ impl From<i32> for LogLevel {
             5 => LogLevel::Trace,
             _ => LogLevel::Info, // Default to Info for unknown values
         }
-    }
-}
-
-impl From<LogLevel> for i32 {
-    fn from(level: LogLevel) -> Self {
-        level as i32
     }
 }
 

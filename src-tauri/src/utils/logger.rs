@@ -5,7 +5,7 @@ use chrono::Utc;
 use uuid::Uuid;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tracing::{debug, info, warn, error, span, Level, Instrument};
+use tracing::{debug, info, warn, error, trace, span, Level, Instrument};
 use serde_json::Value;
 use std::collections::HashMap;
 
@@ -93,12 +93,12 @@ impl Logger {
                         "Error log entry"
                     );
                 },
-                LogLevel::Error => {
-                    error!(
+                LogLevel::Trace => {
+                    trace!(
                         message = %message,
                         context = %context.unwrap_or(""),
                         ?structured_data,
-                        "Critical log entry"
+                        "Trace log entry"
                     );
                 },
             }
@@ -107,7 +107,7 @@ impl Logger {
             let log = SystemLog {
                 id: log_id,
                 user_id: self.user_id.clone(),
-                log_level: level,
+                log_level: level.into(),
                 message: message.to_string(),
                 created_at: timestamp,
                 context: context.map(|s| s.to_string()),
@@ -117,13 +117,7 @@ impl Logger {
             let db = self.db.lock().await;
             let pool = db.get_pool();
             
-            let level_int = match log.log_level {
-                LogLevel::Debug => 4,
-                LogLevel::Info => 3,
-                LogLevel::Warn => 2,
-                LogLevel::Error => 1,
-                LogLevel::Trace => 5,
-            };
+            let level_int = log.log_level;
             
             sqlx::query(
                 r#"

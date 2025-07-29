@@ -8,6 +8,7 @@ import { invoke } from '@tauri-apps/api/core';
 
 interface Strategy {
   id: string;
+  user_id: string;
   name: string;
   description?: string;
   enabled: boolean;

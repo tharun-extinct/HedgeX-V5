@@ -248,8 +248,8 @@ impl KiteClient {
                                         } else {
                                             let error_msg = format!(
                                                 "API error: {} ({})",
-                                                api_response.error_message.unwrap_or_else(|| "Unknown error".to_string()),
-                                                api_response.error_type.unwrap_or_else(|| "unknown".to_string())
+                                                api_response.error_message.clone().unwrap_or_else(|| "Unknown error".to_string()),
+                                                api_response.error_type.clone().unwrap_or_else(|| "unknown".to_string())
                                             );
                                             error!("{}", error_msg);
                                             return Err(self.map_api_error(&api_response));
@@ -267,8 +267,8 @@ impl KiteClient {
                                         let error_msg = format!(
                                             "API error ({}): {} ({})",
                                             status.as_u16(),
-                                            api_response.error_message.unwrap_or_else(|| "Unknown error".to_string()),
-                                            api_response.error_type.unwrap_or_else(|| "unknown".to_string())
+                                            api_response.error_message.clone().unwrap_or_else(|| "Unknown error".to_string()),
+                                            api_response.error_type.clone().unwrap_or_else(|| "unknown".to_string())
                                         );
                                         error!("{}", error_msg);
                                         

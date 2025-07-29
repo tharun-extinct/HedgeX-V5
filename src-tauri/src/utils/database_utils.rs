@@ -136,8 +136,8 @@ impl DatabaseManager {
                 .await
                 .with_context(|| "Failed to create temporary backup")?;
                 
-            // Close the database connection
-            self.database.clone().close().await;
+            // Note: Database connection will be closed when Arc is dropped
+            // self.database.clone().close().await;
             
             // Wait for connections to close
             sleep(Duration::from_millis(500)).await;

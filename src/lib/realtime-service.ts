@@ -449,7 +449,7 @@ export class RealTimeService {
         last_connected: status.last_connected,
         error: status.error,
         subscriptions: status.subscriptions,
-        message_rate: status.message_rate
+        message_rate: (status as any).message_rate
       };
 
       // Only notify if status changed
@@ -601,12 +601,4 @@ export class RealTimeService {
 // Create singleton instance
 export const realTimeService = new RealTimeService();
 
-// Export types for use in components
-export type {
-  MarketDataUpdate,
-  PositionUpdate,
-  OrderUpdate,
-  ConnectionStatus,
-  RealTimeEvent,
-  RealTimeSubscriber
-};
+// Types are already exported above in the file

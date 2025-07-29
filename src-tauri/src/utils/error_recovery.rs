@@ -173,7 +173,7 @@ impl CircuitBreaker {
 
     /// Get current state
     pub async fn get_state(&self) -> CircuitBreakerState {
-        *self.state.read().await
+        self.state.read().await.clone()
     }
 
     /// Get failure count

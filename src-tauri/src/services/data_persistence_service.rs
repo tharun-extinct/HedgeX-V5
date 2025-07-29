@@ -1173,7 +1173,7 @@ impl DataPersistenceService {
                 
                 Ok(csv)
             }
-            _ => Err(HedgeXError::SerializationError("CSV format only supports arrays of objects".to_string()))
+            _ => Err(HedgeXError::ValidationError("CSV format only supports arrays of objects".to_string()))
         }
     }
     
@@ -1194,7 +1194,7 @@ impl DataPersistenceService {
                 
                 Ok(sql)
             }
-            _ => Err(HedgeXError::SerializationError("SQL format only supports arrays of objects".to_string()))
+            _ => Err(HedgeXError::ValidationError("SQL format only supports arrays of objects".to_string()))
         }
     }
     
@@ -1223,28 +1223,30 @@ impl DataPersistenceService {
     }
     
     /// Securely delete a directory and all its contents
-    async fn secure_delete_directory(&self, dir_path: &Path) -> Result<()> {
-        if !dir_path.exists() {
-            return Ok(());
-        }
-        
-        let mut entries = tokio::fs::read_dir(dir_path).await
-            .map_err(|e| HedgeXError::InternalError(format!("Failed to read directory: {}", e)))?;
-        
-        while let Some(entry) = entries.next_entry().await
-            .map_err(|e| HedgeXError::InternalError(format!("Failed to read directory entry: {}", e)))? 
-        {
-            let path = entry.path();
-            if path.is_file() {
-                self.secure_overwrite_file(&path).await?;
-            } else if path.is_dir() {
-                self.secure_delete_directory(&path).await?;
+    fn secure_delete_directory<'a>(&'a self, dir_path: &'a Path) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + 'a>> {
+        Box::pin(async move {
+            if !dir_path.exists() {
+                return Ok(());
             }
-        }
-        
-        tokio::fs::remove_dir(dir_path).await
-            .map_err(|e| HedgeXError::InternalError(format!("Failed to remove directory: {}", e)))?;
-        
-        Ok(())
+            
+            let mut entries = tokio::fs::read_dir(dir_path).await
+                .map_err(|e| HedgeXError::InternalError(format!("Failed to read directory: {}", e)))?;
+            
+            while let Some(entry) = entries.next_entry().await
+                .map_err(|e| HedgeXError::InternalError(format!("Failed to read directory entry: {}", e)))? 
+            {
+                let path = entry.path();
+                if path.is_file() {
+                    self.secure_overwrite_file(&path).await?;
+                } else if path.is_dir() {
+                    self.secure_delete_directory(&path).await?;
+                }
+            }
+            
+            tokio::fs::remove_dir(dir_path).await
+                .map_err(|e| HedgeXError::InternalError(format!("Failed to remove directory: {}", e)))?;
+            
+            Ok(())
+        })
     }
 }

@@ -74,7 +74,8 @@ impl AuthService {
             self.validate_credentials(&request.username, &request.password)?;
             
             // Check if username already exists
-            let pool = self.db_service.get_database().get_pool();
+            let database = self.db_service.get_database();
+            let pool = database.get_pool();
             let existing_user = sqlx::query(
                 "SELECT id FROM users WHERE username = ?"
             )
@@ -125,7 +126,8 @@ impl AuthService {
             info!("Login attempt for user: {}", request.username);
             
             // Get user from database
-            let pool = self.db_service.get_database().get_pool();
+            let database = self.db_service.get_database();
+            let pool = database.get_pool();
             let user = sqlx::query_as::<_, (String, String)>(
                 "SELECT id, password_hash FROM users WHERE username = ?"
             )
@@ -176,7 +178,7 @@ impl AuthService {
             
             Ok(SessionToken {
                 token,
-                user_id: user.id,
+                user_id: user.0,
                 expires_at,
             })
         }
@@ -192,7 +194,8 @@ impl AuthService {
             debug!("Validating session token");
             
             // Get session from database
-            let pool = self.db_service.get_database().get_pool();
+            let database = self.db_service.get_database();
+            let pool = database.get_pool();
             let session = sqlx::query_as::<_, (String, chrono::DateTime<chrono::Utc>, bool)>(
                 "SELECT user_id, expires_at, is_active FROM session_tokens WHERE token = ?"
             )
@@ -245,7 +248,8 @@ impl AuthService {
             info!("Logging out user");
             
             // Invalidate session token
-            let pool = self.db_service.get_database().get_pool();
+            let database = self.db_service.get_database();
+            let pool = database.get_pool();
             let result = sqlx::query(
                 "UPDATE session_tokens SET is_active = false WHERE token = ?"
             )
@@ -279,7 +283,8 @@ impl AuthService {
                 .await?;
             
             // Store in database
-            let pool = self.db_service.get_database().get_pool();
+            let database = self.db_service.get_database();
+            let pool = database.get_pool();
             
             // Check if user exists
             let user = sqlx::query("SELECT id FROM users WHERE id = ?")
@@ -327,7 +332,8 @@ impl AuthService {
             info!("Retrieving API credentials for user: {}", user_id);
             
             // Get encrypted credentials from database
-            let pool = self.db_service.get_database().get_pool();
+            let database = self.db_service.get_database();
+            let pool = database.get_pool();
             let credentials = sqlx::query_as::<_, (String, String, Option<String>, Option<chrono::DateTime<chrono::Utc>>)>(
                 "SELECT api_key, api_secret, access_token, access_token_expiry FROM api_credentials WHERE user_id = ?"
             )
@@ -374,7 +380,8 @@ impl AuthService {
                 .await?;
             
             // Update in database
-            let pool = self.db_service.get_database().get_pool();
+            let database = self.db_service.get_database();
+            let pool = database.get_pool();
             
             // Check if user exists
             let user = sqlx::query("SELECT id FROM users WHERE id = ?")

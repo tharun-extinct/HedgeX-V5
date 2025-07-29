@@ -531,3 +531,5 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
     </div>
   );
 };
+
+export default PerformanceDashboard;

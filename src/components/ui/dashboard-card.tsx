@@ -7,7 +7,7 @@ interface DashboardCardProps {
   icon?: ReactNode;
   value?: string | number;
   change?: number;
-  description?: string;
+  description?: string | ReactNode;
   className?: string;
   children?: ReactNode;
 }

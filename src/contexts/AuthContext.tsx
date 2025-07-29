@@ -257,7 +257,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
         
         if (!result.success) {
-          throw new Error(result.message || 'Registration failed');
+          throw new Error((result as any).message || 'Registration failed');
         }
         
         // Registration successful - user needs to login separately
@@ -371,7 +371,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const hasApiCredentials = useCallback(async (): Promise<boolean> => {
     try {
       const credentials = await getApiCredentials();
-      return credentials !== null && credentials.api_key && credentials.api_secret;
+      return credentials !== null && !!credentials.api_key && !!credentials.api_secret;
     } catch (err) {
       return false;
     }

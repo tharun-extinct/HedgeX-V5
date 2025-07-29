@@ -440,7 +440,7 @@ const BacktestResults: React.FC<BacktestResultsProps> = ({
                     <Tooltip formatter={(value: number) => [formatCurrency(value), 'P&L']} />
                     <Bar 
                       dataKey="pnl" 
-                      fill={(entry: any) => entry.isProfit ? '#10b981' : '#ef4444'}
+                      fill="#10b981"
                     />
                   </BarChart>
                 </ResponsiveContainer>

@@ -80,7 +80,7 @@ async fn login(
     state: tauri::State<'_, AppState>
 ) -> Result<String, String> {
     use crate::services::auth_service::LoginRequest;
-use crate::services::{DataExportRequest, ExportType, ExportFormat, UserSettings};
+// use crate::services::data_persistence_service::{DataExportRequest, ExportType, ExportFormat, UserSettings};
     
     let login_request = LoginRequest {
         username,
@@ -1338,7 +1338,7 @@ async fn log_frontend_error(
     error_data: serde_json::Value,
     state: tauri::State<'_, AppState>
 ) -> Result<serde_json::Value, String> {
-    let logger = state.app_service.get_enhanced_database_service().get_enhanced_logger();
+    let logger = state.app_service.get_enhanced_database_service().get_logger();
     
     let message = error_data.get("message")
         .and_then(|v| v.as_str())
@@ -1347,14 +1347,21 @@ async fn log_frontend_error(
     let context = error_data.get("context")
         .and_then(|v| v.as_str());
     
-    match logger.error_structured(
-        message,
-        context,
-        Some(std::collections::HashMap::from([
-            ("source".to_string(), serde_json::json!("frontend")),
-            ("error_data".to_string(), error_data),
-        ]))
-    ).await {
+    let error_data_clone = error_data.clone();
+    
+    let result = {
+        let mut logger_guard = logger.lock().await;
+        logger_guard.error_structured(
+            message,
+            context,
+            std::collections::HashMap::from([
+                ("source".to_string(), serde_json::json!("frontend")),
+                ("error_data".to_string(), error_data_clone),
+            ])
+        ).await
+    };
+    
+    match result {
         Ok(_) => Ok(serde_json::json!({
             "success": true,
             "message": "Error logged successfully"

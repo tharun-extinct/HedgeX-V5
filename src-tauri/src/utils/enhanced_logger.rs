@@ -6,7 +6,7 @@ use uuid::Uuid;
 use std::sync::Arc;
 use std::path::{Path, PathBuf};
 use tokio::sync::Mutex;
-use tracing::{debug, info, warn, error, span, Level, Instrument};
+use tracing::{debug, info, warn, error, trace, span, Level, Instrument};
 use tracing_subscriber::{
     fmt, 
     EnvFilter, 
@@ -20,8 +20,10 @@ use std::collections::HashMap;
 use std::fs::{self, File, OpenOptions};
 use std::io::Write;
 use tokio::fs::create_dir_all;
+use tokio::time::Duration;
 
 /// Enhanced logger with structured logging, file rotation, and tracing integration
+#[derive(Debug)]
 pub struct EnhancedLogger {
     db: Arc<Mutex<Database>>,
     user_id: Option<String>,
@@ -93,7 +95,6 @@ impl EnhancedLogger {
                     .with_ansi(false)
                     .with_span_events(FmtSpan::CLOSE)
                     .with_timer(ChronoUtc::rfc_3339())
-                    .json()
             )
             .with(filter)
             .init();
@@ -178,12 +179,12 @@ impl EnhancedLogger {
                         "Error log entry"
                     );
                 },
-                LogLevel::Error => {
-                    error!(
+                LogLevel::Trace => {
+                    trace!(
                         message = %message,
                         context = %context.unwrap_or(""),
                         ?structured_data,
-                        "Critical log entry"
+                        "Trace log entry"
                     );
                 },
             }
@@ -192,7 +193,7 @@ impl EnhancedLogger {
             let log = SystemLog {
                 id: log_id,
                 user_id: self.user_id.clone(),
-                log_level: level,
+                log_level: level.into(),
                 message: message.to_string(),
                 created_at: timestamp,
                 context: context.map(|s| s.to_string()),
@@ -202,13 +203,7 @@ impl EnhancedLogger {
             let db = self.db.lock().await;
             let pool = db.get_pool();
             
-            let level_int = match log.log_level {
-                LogLevel::Debug => 4,
-                LogLevel::Info => 3,
-                LogLevel::Warn => 2,
-                LogLevel::Error => 1,
-                LogLevel::Trace => 5,
-            };
+            let level_int = log.log_level;
             
             sqlx::query(
                 r#"

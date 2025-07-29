@@ -233,7 +233,7 @@ const StockSelector: React.FC<StockSelectorProps> = ({ onSelectionChange }) => {
             <Checkbox
               id="showActiveOnly"
               checked={showActiveOnly}
-              onCheckedChange={setShowActiveOnly}
+              onCheckedChange={(checked) => setShowActiveOnly(checked === true)}
             />
             <label htmlFor="showActiveOnly" className="text-sm font-medium cursor-pointer">
               Show active only

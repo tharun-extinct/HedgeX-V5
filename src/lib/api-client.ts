@@ -311,19 +311,19 @@ export class ApiClient {
     take_profit_percentage: number;
     volume_threshold: number;
   }>) {
-    return this.invoke<ApiResponse>('update_strategy', strategyId, updates);
+    return this.invoke<ApiResponse>('update_strategy', { strategyId, ...updates });
   }
 
   async enableStrategy(strategyId: string) {
-    return this.invoke<ApiResponse>('enable_strategy', strategyId);
+    return this.invoke<ApiResponse>('enable_strategy', { strategyId });
   }
 
   async disableStrategy(strategyId: string) {
-    return this.invoke<ApiResponse>('disable_strategy', strategyId);
+    return this.invoke<ApiResponse>('disable_strategy', { strategyId });
   }
 
   async deleteStrategy(strategyId: string) {
-    return this.invoke<ApiResponse>('delete_strategy', strategyId);
+    return this.invoke<ApiResponse>('delete_strategy', { strategyId });
   }
 
   // Stock selection methods
@@ -336,15 +336,15 @@ export class ApiClient {
   }
 
   async addStockSelection(symbol: string, exchange: string = 'NSE') {
-    return this.invoke<ApiResponse>('add_stock_selection', symbol, exchange);
+    return this.invoke<ApiResponse>('add_stock_selection', { symbol, exchange });
   }
 
   async removeStockSelection(symbol: string) {
-    return this.invoke<ApiResponse>('remove_stock_selection', symbol);
+    return this.invoke<ApiResponse>('remove_stock_selection', { symbol });
   }
 
   async bulkAddStockSelections(symbols: string[], exchange: string = 'NSE') {
-    return this.invoke<ApiResponse>('bulk_add_stock_selections', symbols, exchange);
+    return this.invoke<ApiResponse>('bulk_add_stock_selections', { symbols, exchange });
   }
 
   async bulkRemoveStockSelections(symbols: string[]) {
