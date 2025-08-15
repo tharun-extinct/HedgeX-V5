@@ -99,11 +99,8 @@ pub fn create_server(state: HttpServerState) -> Router {
     Router::new()
         .merge(public_routes)
         .merge(protected_routes)
-        .layer(
-            ServiceBuilder::new()
-                .layer(TraceLayer::new_for_http())
-                .layer(cors)
-        )
+        .layer(cors)
+        .layer(TraceLayer::new_for_http())
         .with_state(state)
 }
 
@@ -325,8 +322,8 @@ async fn get_api_credentials(
 }
 
 async fn update_api_credentials(
-    headers: HeaderMap,
     State(state): State<HttpServerState>,
+    headers: HeaderMap,
     Json(request): Json<ApiCredentialsRequest>,
 ) -> Result<Json<ApiResult<String>>, StatusCode> {
     let user_id = match extract_user_id_from_headers(&headers, &state.app_service.get_auth_service()).await {
@@ -360,8 +357,8 @@ async fn update_api_credentials(
 // ============================================================================
 
 async fn start_trading(
-    headers: HeaderMap,
     State(state): State<HttpServerState>,
+    headers: HeaderMap,
 ) -> Result<Json<ApiResult<String>>, StatusCode> {
     let user_id = match extract_user_id_from_headers(&headers, &state.app_service.get_auth_service()).await {
         Ok(id) => id,
@@ -387,8 +384,8 @@ async fn start_trading(
 }
 
 async fn stop_trading(
-    headers: HeaderMap,
     State(state): State<HttpServerState>,
+    headers: HeaderMap,
 ) -> Result<Json<ApiResult<String>>, StatusCode> {
     let user_id = match extract_user_id_from_headers(&headers, &state.app_service.get_auth_service()).await {
         Ok(id) => id,
@@ -413,8 +410,8 @@ async fn stop_trading(
 }
 
 async fn emergency_stop(
-    headers: HeaderMap,
     State(state): State<HttpServerState>,
+    headers: HeaderMap,
 ) -> Result<Json<ApiResult<String>>, StatusCode> {
     let user_id = match extract_user_id_from_headers(&headers, &state.app_service.get_auth_service()).await {
         Ok(id) => id,
@@ -446,8 +443,8 @@ struct TradingStatusResponse {
 }
 
 async fn get_trading_status(
-    headers: HeaderMap,
     State(state): State<HttpServerState>,
+    headers: HeaderMap,
 ) -> Result<Json<ApiResult<TradingStatusResponse>>, StatusCode> {
     let user_id = match extract_user_id_from_headers(&headers, &state.app_service.get_auth_service()).await {
         Ok(id) => id,
@@ -479,8 +476,8 @@ async fn get_trading_status(
 }
 
 async fn get_positions(
-    headers: HeaderMap,
     State(state): State<HttpServerState>,
+    headers: HeaderMap,
 ) -> Result<Json<ApiResult<Vec<crate::models::trading::Position>>>, StatusCode> {
     let user_id = match extract_user_id_from_headers(&headers, &state.app_service.get_auth_service()).await {
         Ok(id) => id,
@@ -502,8 +499,8 @@ async fn get_positions(
 }
 
 async fn get_trades(
-    headers: HeaderMap,
     State(state): State<HttpServerState>,
+    headers: HeaderMap,
     Query(params): Query<HashMap<String, String>>,
 ) -> Result<Json<ApiResult<Vec<crate::models::trading::Trade>>>, StatusCode> {
     let user_id = match extract_user_id_from_headers(&headers, &state.app_service.get_auth_service()).await {
@@ -589,8 +586,8 @@ async fn get_trades(
 }
 
 async fn get_performance_metrics(
-    headers: HeaderMap,
     State(state): State<HttpServerState>,
+    headers: HeaderMap,
 ) -> Result<Json<ApiResult<crate::models::trading::PerformanceMetrics>>, StatusCode> {
     let user_id = match extract_user_id_from_headers(&headers, &state.app_service.get_auth_service()).await {
         Ok(id) => id,
@@ -713,8 +710,8 @@ async fn health_check(
 // ============================================================================
 
 async fn get_strategies(
-    headers: HeaderMap,
     State(state): State<HttpServerState>,
+    headers: HeaderMap,
 ) -> Result<Json<ApiResult<Vec<crate::models::trading::StrategyParams>>>, StatusCode> {
     let user_id = match extract_user_id_from_headers(&headers, &state.app_service.get_auth_service()).await {
         Ok(id) => id,
@@ -754,8 +751,8 @@ struct CreateStrategyRequest {
 }
 
 async fn create_strategy(
-    headers: HeaderMap,
     State(state): State<HttpServerState>,
+    headers: HeaderMap,
     Json(request): Json<CreateStrategyRequest>,
 ) -> Result<Json<ApiResult<crate::models::trading::StrategyParams>>, StatusCode> {
     let user_id = match extract_user_id_from_headers(&headers, &state.app_service.get_auth_service()).await {
@@ -798,9 +795,9 @@ async fn create_strategy(
 }
 
 async fn get_strategy(
-    headers: HeaderMap,
     State(state): State<HttpServerState>,
     Path(strategy_id): Path<String>,
+    headers: HeaderMap,
 ) -> Result<Json<ApiResult<crate::models::trading::StrategyParams>>, StatusCode> {
     let user_id = match extract_user_id_from_headers(&headers, &state.app_service.get_auth_service()).await {
         Ok(id) => id,
@@ -843,9 +840,9 @@ struct UpdateStrategyRequest {
 }
 
 async fn update_strategy(
-    headers: HeaderMap,
     State(state): State<HttpServerState>,
     Path(strategy_id): Path<String>,
+    headers: HeaderMap,
     Json(request): Json<UpdateStrategyRequest>,
 ) -> Result<Json<ApiResult<crate::models::trading::StrategyParams>>, StatusCode> {
     let user_id = match extract_user_id_from_headers(&headers, &state.app_service.get_auth_service()).await {
@@ -888,9 +885,9 @@ async fn update_strategy(
 }
 
 async fn delete_strategy(
-    headers: HeaderMap,
     State(state): State<HttpServerState>,
     Path(strategy_id): Path<String>,
+    headers: HeaderMap,
 ) -> Result<Json<ApiResult<String>>, StatusCode> {
     let user_id = match extract_user_id_from_headers(&headers, &state.app_service.get_auth_service()).await {
         Ok(id) => id,
@@ -922,9 +919,9 @@ async fn delete_strategy(
 }
 
 async fn enable_strategy(
-    headers: HeaderMap,
     State(state): State<HttpServerState>,
     Path(strategy_id): Path<String>,
+    headers: HeaderMap,
 ) -> Result<Json<ApiResult<String>>, StatusCode> {
     let user_id = match extract_user_id_from_headers(&headers, &state.app_service.get_auth_service()).await {
         Ok(id) => id,
@@ -956,9 +953,9 @@ async fn enable_strategy(
 }
 
 async fn disable_strategy(
-    headers: HeaderMap,
     State(state): State<HttpServerState>,
     Path(strategy_id): Path<String>,
+    headers: HeaderMap,
 ) -> Result<Json<ApiResult<String>>, StatusCode> {
     let user_id = match extract_user_id_from_headers(&headers, &state.app_service.get_auth_service()).await {
         Ok(id) => id,
@@ -990,9 +987,9 @@ async fn disable_strategy(
 }
 
 async fn get_strategy_performance(
-    headers: HeaderMap,
     State(state): State<HttpServerState>,
     Path(strategy_id): Path<String>,
+    headers: HeaderMap,
     Query(params): Query<HashMap<String, String>>,
 ) -> Result<Json<ApiResult<crate::services::StrategyPerformance>>, StatusCode> {
     let user_id = match extract_user_id_from_headers(&headers, &state.app_service.get_auth_service()).await {
@@ -1049,8 +1046,8 @@ async fn get_nifty_50_stocks(
 }
 
 async fn get_stock_selections(
-    headers: HeaderMap,
     State(state): State<HttpServerState>,
+    headers: HeaderMap,
 ) -> Result<Json<ApiResult<Vec<crate::models::trading::StockSelection>>>, StatusCode> {
     let user_id = match extract_user_id_from_headers(&headers, &state.app_service.get_auth_service()).await {
         Ok(id) => id,
@@ -1085,8 +1082,8 @@ struct AddStockSelectionRequest {
 }
 
 async fn add_stock_selection(
-    headers: HeaderMap,
     State(state): State<HttpServerState>,
+    headers: HeaderMap,
     Json(request): Json<AddStockSelectionRequest>,
 ) -> Result<Json<ApiResult<crate::models::trading::StockSelection>>, StatusCode> {
     let user_id = match extract_user_id_from_headers(&headers, &state.app_service.get_auth_service()).await {
@@ -1121,9 +1118,9 @@ async fn add_stock_selection(
 }
 
 async fn remove_stock_selection(
-    headers: HeaderMap,
     State(state): State<HttpServerState>,
     Path(symbol): Path<String>,
+    headers: HeaderMap,
 ) -> Result<Json<ApiResult<String>>, StatusCode> {
     let user_id = match extract_user_id_from_headers(&headers, &state.app_service.get_auth_service()).await {
         Ok(id) => id,
@@ -1161,8 +1158,8 @@ struct BulkStockSelectionRequest {
 }
 
 async fn bulk_add_stock_selections(
-    headers: HeaderMap,
     State(state): State<HttpServerState>,
+    headers: HeaderMap,
     Json(request): Json<BulkStockSelectionRequest>,
 ) -> Result<Json<ApiResult<Vec<crate::models::trading::StockSelection>>>, StatusCode> {
     let user_id = match extract_user_id_from_headers(&headers, &state.app_service.get_auth_service()).await {
@@ -1197,8 +1194,8 @@ async fn bulk_add_stock_selections(
 }
 
 async fn bulk_remove_stock_selections(
-    headers: HeaderMap,
     State(state): State<HttpServerState>,
+    headers: HeaderMap,
     Json(request): Json<BulkStockSelectionRequest>,
 ) -> Result<Json<ApiResult<String>>, StatusCode> {
     let user_id = match extract_user_id_from_headers(&headers, &state.app_service.get_auth_service()).await {
@@ -1297,12 +1294,12 @@ async fn get_symbol_market_data(
 // ============================================================================
 
 async fn get_trade_history(
-    headers: HeaderMap,
     State(state): State<HttpServerState>,
+    headers: HeaderMap,
     Query(params): Query<HashMap<String, String>>,
 ) -> Result<Json<ApiResult<Vec<crate::models::trading::Trade>>>, StatusCode> {
     // This is the same as get_trades but with different filtering options
-    get_trades(headers, State(state), Query(params)).await
+    get_trades(State(state), headers, Query(params)).await
 }
 
 #[derive(Serialize)]
@@ -1317,8 +1314,8 @@ struct AnalyticsPerformanceResponse {
 }
 
 async fn get_analytics_performance(
-    headers: HeaderMap,
     State(state): State<HttpServerState>,
+    headers: HeaderMap,
     Query(params): Query<HashMap<String, String>>,
 ) -> Result<Json<ApiResult<AnalyticsPerformanceResponse>>, StatusCode> {
     let user_id = match extract_user_id_from_headers(&headers, &state.app_service.get_auth_service()).await {

@@ -1,0 +1,27 @@
+# HedgeX Application Configuration
+# Memory and resource management
+[system]
+max_memory_mb = 512
+enable_graceful_shutdown = true
+enable_resource_monitoring = true
+max_log_file_size_mb = 100
+
+[database]
+max_connections = 5
+timeout_seconds = 30
+enable_connection_pooling = true
+
+[websocket]
+max_connections = 10
+timeout_seconds = 60
+enable_heartbeat = true
+
+[trading]
+max_concurrent_strategies = 5
+memory_limit_mb = 256
+enable_circuit_breaker = true
+
+[logging]
+level = "info"
+enable_file_logging = true
+max_files = 5 

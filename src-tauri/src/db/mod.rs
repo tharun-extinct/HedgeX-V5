@@ -67,38 +67,95 @@ impl Database {
                 .context("Failed to create app data directory")?;
             info!("Created directory: {:?}", app_data_dir);
         }
+        
+        // Verify directory permissions
+        let metadata = std_fs::metadata(app_data_dir)
+            .with_context(|| format!("Failed to get metadata for directory: {:?}", app_data_dir))?;
+        
+        if !metadata.is_dir() {
+            return Err(anyhow::anyhow!("App data path is not a directory: {:?}", app_data_dir));
+        }
+        
+        debug!("Directory permissions verified for: {:?}", app_data_dir);
 
         let db_path = app_data_dir.join("hedgex.db");
         
         // Check if database file exists
         let db_exists = db_path.exists();
         
-        // Build SQLite connection string with optimizations
-        let mut db_url = format!("sqlite://{}?mode=rwc", db_path.to_string_lossy());
-        
-        if config.enable_wal_mode {
-            db_url.push_str("&journal_mode=WAL");
+        // If database exists but we're having connection issues, try to remove it
+        if db_exists {
+            debug!("Database file exists, checking if it's accessible");
+            // Try to open the file to see if it's corrupted
+            match std::fs::File::open(&db_path) {
+                Ok(_) => debug!("Database file is accessible"),
+                Err(e) => {
+                    warn!("Database file exists but is not accessible: {}. Removing it.", e);
+                    if let Err(remove_err) = std_fs::remove_file(&db_path) {
+                        warn!("Failed to remove corrupted database file: {}", remove_err);
+                    } else {
+                        info!("Removed corrupted database file");
+                    }
+                }
+            }
         }
-        if config.enable_foreign_keys {
-            db_url.push_str("&foreign_keys=on");
-        }
         
-        // Add performance optimizations
-        db_url.push_str("&synchronous=NORMAL&cache_size=-64000&temp_store=memory");
+        // Try in-memory database first to test if SQLite works
+        debug!("Testing in-memory SQLite database first...");
+        let test_pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .context("Failed to connect to in-memory SQLite database")?;
+            
+        // Test with a simple query
+        sqlx::query("SELECT 1")
+            .fetch_one(&test_pool)
+            .await
+            .context("Failed to execute test query on in-memory database")?;
+            
+        info!("In-memory SQLite test passed");
+        test_pool.close().await;
+
+        // Build SQLite connection string - simplified for debugging
+        let db_path_str = db_path.to_string_lossy().replace('\\', "/");
+        let db_url = format!("sqlite:{}", db_path_str);
 
         info!("Using database at: {}", db_path.to_string_lossy());
         debug!("Database URL: {}", db_url);
         info!("Database exists: {}", db_exists);
 
-        // Create connection pool with enhanced configuration
-        let pool = SqlitePoolOptions::new()
-            .max_connections(config.max_connections)
-            .acquire_timeout(std::time::Duration::from_secs(config.connection_timeout_secs))
-            .idle_timeout(std::time::Duration::from_secs(config.idle_timeout_secs))
-            .test_before_acquire(true)
+        // Create connection pool with minimal configuration for debugging
+        info!("Attempting to connect to SQLite database with URL: {}", db_url);
+        
+        let pool = match SqlitePoolOptions::new()
+            .max_connections(1)
+            .acquire_timeout(std::time::Duration::from_secs(10))
             .connect(&db_url)
             .await
-            .context("Failed to connect to SQLite database")?;
+        {
+            Ok(pool) => {
+                info!("Successfully connected to SQLite database");
+                pool
+            },
+            Err(e) => {
+                error!("Failed to connect to SQLite database: {}", e);
+                error!("Database path: {}", db_path.display());
+                error!("Database URL: {}", db_url);
+                error!("Database exists: {}", db_exists);
+                
+                // Try to create the database file manually
+                if !db_exists {
+                    info!("Attempting to create database file manually");
+                    match std::fs::File::create(&db_path) {
+                        Ok(_) => info!("Database file created successfully"),
+                        Err(create_err) => error!("Failed to create database file: {}", create_err),
+                    }
+                }
+                
+                return Err(anyhow::anyhow!("Failed to connect to SQLite database at: {} (URL: {}). Error: {}", db_path.display(), db_url, e));
+            }
+        };
 
         info!("Database connection pool created successfully");
 

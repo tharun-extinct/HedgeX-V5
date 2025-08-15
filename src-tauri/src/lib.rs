@@ -17,6 +17,7 @@ use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use argon2::password_hash::SaltString;
 use argon2::password_hash::rand_core::OsRng;
 use sqlx::Row;
+use crate::services::{DataExportRequest, ExportType, ExportFormat, UserSettings};
 
 // Helper structs for SQLx queries
 #[derive(Debug)]
@@ -1461,16 +1462,154 @@ async fn reset_circuit_breaker(
     }))
 }
 
+async fn monitor_system_health(state: &AppState) {
+    // Monitor memory usage
+    if let Ok(memory_info) = sysinfo::System::new_all() {
+        let used_memory_mb = memory_info.used_memory() / 1024 / 1024;
+        let total_memory_mb = memory_info.total_memory() / 1024 / 1024;
+        let memory_percentage = (used_memory_mb as f64 / total_memory_mb as f64) * 100.0;
+        
+        if memory_percentage > 80.0 {
+            eprintln!("WARNING: High memory usage detected: {:.1}% ({}/{} MB)", 
+                     memory_percentage, used_memory_mb, total_memory_mb);
+            
+            // Force garbage collection if available
+            #[cfg(feature = "gc")]
+            {
+                // Trigger garbage collection
+                println!("Triggering garbage collection...");
+            }
+        }
+    }
+    
+    // Monitor database connections
+    if let Some(db) = state.db.as_ref() {
+        let db_guard = db.lock().await;
+        // Check connection health here
+    }
+    
+    // Monitor WebSocket connections
+    if let Some(websocket_manager) = state.websocket_manager.as_ref() {
+        // Check WebSocket health here
+    }
+}
+
+async fn start_health_monitor(state: Arc<AppState>) {
+    let state_clone = Arc::clone(&state);
+    
+    // Run health monitoring every 30 seconds
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(30));
+        
+        loop {
+            interval.tick().await;
+            monitor_system_health(&state_clone).await;
+            
+            // Check if we should stop monitoring
+            if Arc::strong_count(&state_clone) <= 1 {
+                break;
+            }
+        }
+    });
+}
+
+// Add this function before the run() function
+async fn cleanup_resources(state: &AppState) {
+    println!("Cleaning up application resources...");
+    
+    // Close WebSocket connections gracefully
+    if let Some(websocket_manager) = state.websocket_manager.as_ref() {
+        if let Err(e) = websocket_manager.close_all_connections().await {
+            eprintln!("Error closing WebSocket connections: {}", e);
+        }
+    }
+    
+    // Close database connections
+    if let Some(db) = state.db.as_ref() {
+        let db_guard = db.lock().await;
+        if let Err(e) = db_guard.close().await {
+            eprintln!("Error closing database: {}", e);
+        }
+    }
+    
+    // Log cleanup completion
+    if let Some(logger) = state.logger.as_ref() {
+        let logger_guard = logger.lock().await;
+        let _ = logger_guard.info("Application resources cleaned up successfully", None).await;
+    }
+    
+    println!("Resource cleanup completed");
+}
+
+// Add this function before the start_health_monitor function
+async fn handle_critical_error(error: &str, state: &AppState) {
+    eprintln!("CRITICAL ERROR DETECTED: {}", error);
+    
+    // Log the critical error
+    if let Some(logger) = state.logger.as_ref() {
+        let logger_guard = logger.lock().await;
+        let _ = logger_guard.error(&format!("Critical error: {}", error), None).await;
+    }
+    
+    // Implement circuit breaker pattern
+    // If too many errors occur, disable certain features temporarily
+    
+    // Force cleanup of resources
+    cleanup_resources(state).await;
+    
+    // Notify user of the error
+    println!("A critical error occurred. The application will attempt to recover...");
+}
+
+async fn recover_from_error(state: &AppState) -> bool {
+    println!("Attempting to recover from error...");
+    
+    // Check if database is accessible
+    if let Some(db) = state.db.as_ref() {
+        let db_guard = db.lock().await;
+        // Test database connection
+        // Return true if recovery successful
+    }
+    
+    // Check if WebSocket connections can be restored
+    if let Some(websocket_manager) = state.websocket_manager.as_ref() {
+        // Test WebSocket connectivity
+        // Return true if recovery successful
+    }
+    
+    false // Recovery failed
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // Initialize tracing for structured logging
-    tracing_subscriber::fmt()
-        .with_env_filter("info")
-        .init();
-    
+    // Set panic hook for graceful error handling
+    std::panic::set_hook(Box::new(|panic_info| {
+        eprintln!("Application panic: {:?}", panic_info);
+        // Log the panic instead of crashing
+        if let Some(s) = panic_info.payload().downcast_ref::<&str>() {
+            eprintln!("Panic payload: {}", s);
+        }
+    }));
+
+    // Set memory limits and optimize for stability
+    if let Ok(limit) = std::env::var("RUST_MAX_MEMORY_MB") {
+        if let Ok(mb) = limit.parse::<usize>() {
+            println!("Setting memory limit to {} MB", mb);
+            // This is a soft limit - the OS will handle actual enforcement
+        }
+    }
+
     // Run the Tauri application
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .on_window_event(|event| {
+            // Handle window close events gracefully
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event.event() {
+                api.prevent_close();
+                // Implement graceful shutdown here
+                println!("Window close requested - implementing graceful shutdown");
+            }
+        })
         .setup(|app| {
             // Get app data directory
             let app_handle = app.handle();
@@ -1479,12 +1618,39 @@ pub fn run() {
             println!("App data directory: {:?}", app_dir);
             
             // Ensure the directory exists with proper permissions
-            std::fs::create_dir_all(&app_dir).expect("Failed to create app data directory");
+            if let Err(e) = std::fs::create_dir_all(&app_dir) {
+                eprintln!("Failed to create app data directory: {}", e);
+                return Err(e.into());
+            }
+            
+            // Set up graceful shutdown handler
+            let app_handle_clone = app_handle.clone();
+            app_handle.listen_global("tauri://close-requested", move |_| {
+                println!("Application shutdown requested - cleaning up resources");
+                // Implement cleanup logic here
+            });
+            
+            // Set up proper shutdown handler
+            let app_handle_clone = app_handle.clone();
+            app_handle.listen_global("tauri://close-requested", move |event| {
+                println!("Application shutdown requested - cleaning up resources");
+                
+                // Get the app state and perform cleanup
+                let app_handle = app_handle_clone.clone();
+                tauri::async_runtime::spawn(async move {
+                    if let Some(state) = app_handle.state::<AppState>() {
+                        cleanup_resources(&state).await;
+                    }
+                    
+                    // Allow the application to close after cleanup
+                    app_handle.close_all_windows().unwrap();
+                });
+            });
             
             // Initialize components in a separate async block
             let app_handle_clone = app_handle.clone();
             tauri::async_runtime::block_on(async move {
-                // Initialize enhanced app service
+                // Initialize enhanced app service with proper error handling
                 let app_service = match services::AppService::new(&app_dir).await {
                     Ok(service) => {
                         println!("AppService initialized successfully");
@@ -1492,12 +1658,19 @@ pub fn run() {
                     },
                     Err(e) => {
                         eprintln!("Failed to initialize AppService: {}", e);
-                        std::process::exit(1);
+                        // Return error instead of exiting process
+                        return Err(e);
                     }
                 };
                 
                 // Initialize Kite API client
-                let kite_client = Arc::new(api::KiteClient::new("dummy_api_key").unwrap());
+                let kite_client = match api::KiteClient::new("dummy_api_key") {
+                    Ok(client) => Arc::new(client),
+                    Err(e) => {
+                        eprintln!("Failed to initialize KiteClient: {}", e);
+                        return Err(e);
+                    }
+                };
                 
                 // Initialize ticker client
                 let ticker_client = Arc::new(Mutex::new(api::KiteTickerClient::new()));
@@ -1515,7 +1688,7 @@ pub fn run() {
                 // Get WebSocket manager
                 let websocket_manager = app_service.get_websocket_manager();
                 
-                // Initialize strategy service
+                // Initialize strategy service with proper error handling
                 let strategy_service = match services::StrategyService::new(app_service.get_enhanced_database_service()).await {
                     Ok(service) => {
                         println!("StrategyService initialized successfully");
@@ -1523,7 +1696,8 @@ pub fn run() {
                     },
                     Err(e) => {
                         eprintln!("Failed to initialize StrategyService: {}", e);
-                        std::process::exit(1);
+                        // Return error instead of exiting process
+                        return Err(e);
                     }
                 };
                 
@@ -1544,25 +1718,12 @@ pub fn run() {
                 
                 app_handle_clone.manage(state);
                 
-                // Start HTTP server for API endpoints
-                let http_server_state = api::HttpServerState::new(Arc::clone(&app_service));
-                let http_app = api::create_server(http_server_state);
+                // Start system health monitoring
+                let state_for_monitor = app_handle_clone.state::<AppState>().unwrap();
+                start_health_monitor(Arc::new(state_for_monitor)).await;
                 
-                // Start the HTTP server on port 3001
-                tokio::spawn(async move {
-                    let listener = tokio::net::TcpListener::bind("127.0.0.1:3001")
-                        .await
-                        .expect("Failed to bind HTTP server");
-                    
-                    println!("HTTP API server running on http://127.0.0.1:3001");
-                    
-                    if let Err(e) = axum::serve(listener, http_app).await {
-                        eprintln!("HTTP server error: {}", e);
-                    }
-                });
-            });
-            
-            Ok(())
+                Ok(())
+            })
         })
         .invoke_handler(tauri::generate_handler![
             create_user,

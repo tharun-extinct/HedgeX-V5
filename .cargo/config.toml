@@ -1,0 +1,18 @@
+[build]
+# Limit parallel jobs to prevent thread overflow
+jobs = 2
+
+[target.x86_64-pc-windows-msvc]
+# Increase stack size for Windows builds
+rustflags = ["-C", "link-arg=-stack:8388608"]
+
+[profile.release]
+# Optimize for smaller binary size and less memory usage during compilation
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[profile.dev]
+# Reduce debug info to speed up compilation and reduce memory usage
+debug = 1
